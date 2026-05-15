@@ -22,6 +22,8 @@
             min-height: 100dvh;
             overflow: hidden;
             touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         /* Ambient background */
@@ -115,11 +117,15 @@
             cursor: grab;
             transition: transform 0.1s cubic-bezier(0.23, 1, 0.32, 1);
             border: 1px solid rgba(255,255,255,0.05);
+            will-change: transform;
         }
 
         .piece-canvas:active {
             cursor: grabbing;
-            transform: scale(1.15);
+        }
+
+        .piece-canvas.dragging {
+            transition: none;
         }
 
         #game-title {
@@ -226,21 +232,6 @@
             from { opacity: 0; }
             to { opacity: 1; }
         }
-
-        /* Clear flash effect */
-        .clear-flash {
-            position: absolute;
-            background: rgba(255,255,255,0.9);
-            border-radius: 2px;
-            pointer-events: none;
-            animation: clearFlash 200ms ease-out forwards;
-        }
-
-        @keyframes clearFlash {
-            0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 1; transform: scale(1.08); }
-            100% { opacity: 0; transform: scale(0.85); }
-        }
     </style>
 </head>
 <body>
@@ -274,10 +265,12 @@
 
 <script>
 // ============================================================
-// Block Blast H5 - Neon Arcade Edition
-// Core game logic based on user-provided code, enhanced with
-// neon glow rendering, sweep-light clear animations, and
-// responsive canvas sizing.
+// Block Blast H5 - Neon Arcade Edition (Tuned)
+// Performance optimizations:
+//   1. RAF-throttled touch drag (no direct draw in touchmove)
+//   2. translate3d GPU acceleration for piece dragging
+//   3. Canvas-based clear animation (alpha fade + white overlay)
+//   4. Dynamic difficulty: smart piece generation based on board state
 // ============================================================
 
 // 1. Core Configuration & Piece Pool
@@ -302,10 +295,16 @@ const GLOW_COLORS = {
     5: "rgba(255, 51, 85, 0.6)"
 };
 
-const PIECE_SHAPES = [
+// 调优：将方块池分为小方块和大方块两组（用于动态难度）
+const SMALL_PIECES = [
     { shape: [[1]], color: 1 },
     { shape: [[1, 1]], color: 2 },
     { shape: [[1],[1]], color: 2 },
+    { shape: [[1,1],[1,0]], color: 4 },
+    { shape: [[1,1],[0,1]], color: 1 }
+];
+
+const LARGE_PIECES = [
     { shape: [[1, 1], [1, 1]], color: 3 },
     { shape: [[1, 1, 1]], color: 4 },
     { shape: [[1],[1],[1]], color: 4 },
@@ -314,10 +313,11 @@ const PIECE_SHAPES = [
     { shape: [[1,1,1,1]], color: 3 },
     { shape: [[1,1,1],[1,0,0]], color: 2 },
     { shape: [[1,1,1],[0,0,1]], color: 5 },
-    { shape: [[1,1],[1,0]], color: 4 },
     { shape: [[1,1,1,1,1]], color: 1 },
     { shape: [[1],[1],[1],[1],[1]], color: 3 }
 ];
+
+const PIECE_SHAPES = [...SMALL_PIECES, ...LARGE_PIECES];
 
 // 2. Game State
 let board = [];
@@ -326,8 +326,16 @@ let combo = 0;
 let currentPieces = [null, null, null];
 let dragIdx = null;
 let isDragging = false;
-let dragX = 0, dragY = 0;
 let startX = 0, startY = 0;
+
+// 调优1：RAF 节流变量
+let ticking = false;
+let lastTouchX = 0;
+let lastTouchY = 0;
+
+// 调优2：消除动画状态
+let animatingCells = [];
+let isAnimating = false;
 
 const canvas = document.getElementById('board-canvas');
 const ctx = canvas.getContext('2d');
@@ -352,6 +360,8 @@ function initGame() {
     board = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
     score = 0;
     combo = 0;
+    animatingCells = [];
+    isAnimating = false;
     document.getElementById('game-over-mask').classList.remove('show');
     document.getElementById('game-over-mask').style.display = 'none';
     updateScoreUI();
@@ -364,9 +374,28 @@ function updateScoreUI() {
     document.getElementById('combo').innerText = combo;
 }
 
+// 调优3：动态难度方块生成算法
 function refreshPieces() {
+    // 统计棋盘上还有多少空格
+    let emptyCells = 0;
+    for (let r = 0; r < GRID_SIZE; r++) {
+        for (let c = 0; c < GRID_SIZE; c++) {
+            if (board[r][c] === 0) emptyCells++;
+        }
+    }
+
     for (let i = 0; i < 3; i++) {
-        const randomTemplate = PIECE_SHAPES[Math.floor(Math.random() * PIECE_SHAPES.length)];
+        let pool = PIECE_SHAPES; // 默认全池
+
+        // 动态难度调优：如果空格太少，70% 的概率只生成小方块，放水防止死局
+        if (emptyCells < 20 && Math.random() < 0.7) {
+            pool = SMALL_PIECES;
+        } else if (emptyCells > 45 && Math.random() < 0.5) {
+            // 空格很多时，多给大方块增加挑战
+            pool = LARGE_PIECES;
+        }
+
+        const randomTemplate = pool[Math.floor(Math.random() * pool.length)];
         currentPieces[i] = JSON.parse(JSON.stringify(randomTemplate));
         drawPiecePreview(i);
     }
@@ -483,20 +512,7 @@ function showComboPopup(comboVal) {
     setTimeout(() => popup.remove(), 650);
 }
 
-function showClearFlash(cells) {
-    const boardRect = canvas.getBoundingClientRect();
-    cells.forEach(cell => {
-        const flash = document.createElement('div');
-        flash.className = 'clear-flash';
-        flash.style.left = (boardRect.left + cell.col * BLOCK_SIZE + 2) + 'px';
-        flash.style.top = (boardRect.top + cell.row * BLOCK_SIZE + 2) + 'px';
-        flash.style.width = (BLOCK_SIZE - 4) + 'px';
-        flash.style.height = (BLOCK_SIZE - 4) + 'px';
-        document.body.appendChild(flash);
-        setTimeout(() => flash.remove(), 220);
-    });
-}
-
+// 调优2：Canvas 消除动画（渐隐缩放 + 白色高亮覆盖）
 function checkAndClear() {
     let rowsToClear = [];
     let colsToClear = [];
@@ -514,32 +530,92 @@ function checkAndClear() {
 
     let cleared = rowsToClear.length + colsToClear.length;
     if (cleared > 0) {
-        // Collect cells for flash animation
-        const cells = [];
+        // 收集需要播放消除动画的格子
+        animatingCells = [];
         rowsToClear.forEach(r => {
-            for (let c = 0; c < GRID_SIZE; c++) cells.push({ row: r, col: c });
+            for (let c = 0; c < GRID_SIZE; c++) {
+                animatingCells.push({ r, c, alpha: 1.0, scale: 1.0 });
+            }
         });
         colsToClear.forEach(c => {
-            for (let r = 0; r < GRID_SIZE; r++) cells.push({ row: r, col: c });
+            for (let r = 0; r < GRID_SIZE; r++) {
+                if (!animatingCells.some(cell => cell.r === r && cell.c === c)) {
+                    animatingCells.push({ r, c, alpha: 1.0, scale: 1.0 });
+                }
+            }
         });
-        showClearFlash(cells);
 
         combo++;
         score += cleared * 10 * combo;
         showComboPopup(combo);
-
-        // Delay actual clear for animation
-        setTimeout(() => {
+        
+        // 启动消除动画循环
+        isAnimating = true;
+        playClearAnimation(() => {
+            // 动画完全结束后，真正清除数据并刷新
             rowsToClear.forEach(r => board[r].fill(0));
             colsToClear.forEach(c => {
                 for (let r = 0; r < GRID_SIZE; r++) board[r][c] = 0;
             });
+            isAnimating = false;
+            if (currentPieces.every(p => p === null)) {
+                refreshPieces();
+            } else {
+                checkGameOver();
+            }
+            updateScoreUI();
             drawBoard();
-        }, 180);
+        });
     } else {
         combo = 0;
+        updateScoreUI();
     }
-    updateScoreUI();
+}
+
+// 消除动画帧渲染
+function playClearAnimation(onComplete) {
+    const step = () => {
+        let anyLeft = false;
+        animatingCells.forEach(cell => {
+            if (cell.alpha > 0) {
+                cell.alpha -= 0.12;
+                cell.scale -= 0.06;
+                if (cell.scale < 0.3) cell.scale = 0.3;
+                anyLeft = true;
+            }
+        });
+
+        // 重新绘制棋盘
+        drawBoard();
+
+        // 在动画格子上覆盖白色渐隐高亮
+        animatingCells.forEach(cell => {
+            if (cell.alpha > 0) {
+                const x = cell.c * BLOCK_SIZE;
+                const y = cell.r * BLOCK_SIZE;
+                const pad = (1 - cell.scale) * BLOCK_SIZE * 0.5;
+
+                // 白色闪光覆盖
+                ctx.fillStyle = `rgba(255, 255, 255, ${cell.alpha * 0.8})`;
+                ctx.fillRect(x + 2 + pad, y + 2 + pad, (BLOCK_SIZE - 4) * cell.scale, (BLOCK_SIZE - 4) * cell.scale);
+
+                // 外发光
+                ctx.shadowColor = `rgba(255, 255, 255, ${cell.alpha * 0.5})`;
+                ctx.shadowBlur = 12 * cell.alpha;
+                ctx.fillStyle = `rgba(255, 255, 255, ${cell.alpha * 0.3})`;
+                ctx.fillRect(x + 2 + pad, y + 2 + pad, (BLOCK_SIZE - 4) * cell.scale, (BLOCK_SIZE - 4) * cell.scale);
+                ctx.shadowBlur = 0;
+            }
+        });
+
+        if (anyLeft) {
+            requestAnimationFrame(step);
+        } else {
+            animatingCells = [];
+            onComplete();
+        }
+    };
+    requestAnimationFrame(step);
 }
 
 function checkGameOver() {
@@ -565,7 +641,7 @@ function checkGameOver() {
     }
 }
 
-// 7. Drag & Drop Interaction (Mouse + Touch)
+// 7. Drag & Drop Interaction - 调优1：RAF 节流 + GPU 加速
 function getBoardCellFromClient(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const x = clientX - rect.left;
@@ -575,19 +651,47 @@ function getBoardCellFromClient(clientX, clientY) {
     return { row, col };
 }
 
+// 将 UI 渲染和逻辑分离（调优核心）
+function updateDragUI(clientX, clientY) {
+    if (dragIdx === null || !currentPieces[dragIdx]) return;
+
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+    
+    const pCanvas = document.getElementById(`piece-${dragIdx}`);
+    // 调优：使用 translate3d 开启硬件加速 (GPU Acceleration)
+    pCanvas.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(1.3)`;
+
+    // Calculate ghost position on board
+    const boardPos = getBoardCellFromClient(clientX, clientY);
+    const pRows = currentPieces[dragIdx].shape.length;
+    const pCols = currentPieces[dragIdx].shape[0].length;
+    const ghostRow = boardPos.row - Math.floor(pRows / 2);
+    const ghostCol = boardPos.col - Math.floor(pCols / 2);
+
+    if (ghostRow >= 0 && ghostRow + pRows <= GRID_SIZE && ghostCol >= 0 && ghostCol + pCols <= GRID_SIZE) {
+        drawBoard({ row: ghostRow, col: ghostCol });
+    } else {
+        drawBoard();
+    }
+}
+
 function setupDragAndDrop() {
     for (let i = 0; i < 3; i++) {
         const pCanvas = document.getElementById(`piece-${i}`);
         
         const startDrag = (e) => {
-            if (!currentPieces[i]) return;
+            if (!currentPieces[i] || isAnimating) return;
             e.preventDefault();
             dragIdx = i;
             isDragging = true;
             const touch = e.touches ? e.touches[0] : e;
             startX = touch.clientX;
             startY = touch.clientY;
-            pCanvas.style.transform = "scale(1.2)";
+            lastTouchX = startX;
+            lastTouchY = startY;
+            pCanvas.classList.add('dragging');
+            pCanvas.style.transform = "translate3d(0, 0, 0) scale(1.2)";
             pCanvas.style.zIndex = "10";
         };
 
@@ -595,34 +699,33 @@ function setupDragAndDrop() {
         pCanvas.addEventListener('touchstart', startDrag, { passive: false });
     }
 
+    // 调优1：RAF 节流的 move 监听
     const moveDrag = (e) => {
         if (!isDragging || dragIdx === null) return;
-        if (e.cancelable) e.preventDefault();
-        const touch = e.touches ? e.touches[0] : e;
-        const dx = touch.clientX - startX;
-        const dy = touch.clientY - startY;
         
-        const pCanvas = document.getElementById(`piece-${dragIdx}`);
-        pCanvas.style.transform = `translate(${dx}px, ${dy}px) scale(1.3)`;
+        // 阻止浏览器默认的翻页、下拉刷新行为
+        if (e.cancelable) e.preventDefault();
+        
+        const touch = e.touches ? e.touches[0] : e;
+        lastTouchX = touch.clientX;
+        lastTouchY = touch.clientY;
 
-        // Calculate ghost position on board
-        const boardPos = getBoardCellFromClient(touch.clientX, touch.clientY);
-        const pRows = currentPieces[dragIdx].shape.length;
-        const pCols = currentPieces[dragIdx].shape[0].length;
-        const ghostRow = boardPos.row - Math.floor(pRows/2);
-        const ghostCol = boardPos.col - Math.floor(pCols/2);
-
-        if (ghostRow >= 0 && ghostRow + pRows <= GRID_SIZE && ghostCol >= 0 && ghostCol + pCols <= GRID_SIZE) {
-            drawBoard({ row: ghostRow, col: ghostCol });
-        } else {
-            drawBoard();
+        // 使用 requestAnimationFrame 节流，避免在 touchmove 中直接绘图
+        if (!ticking) {
+            window.requestAnimationFrame(() => {
+                updateDragUI(lastTouchX, lastTouchY);
+                ticking = false;
+            });
+            ticking = true;
         }
     };
 
     const stopDrag = (e) => {
         if (!isDragging || dragIdx === null) return;
         isDragging = false;
+        ticking = false;
         const pCanvas = document.getElementById(`piece-${dragIdx}`);
+        pCanvas.classList.remove('dragging');
         
         const touch = e.changedTouches ? e.changedTouches[0] : e;
         const boardPos = getBoardCellFromClient(touch.clientX, touch.clientY);
@@ -630,8 +733,8 @@ function setupDragAndDrop() {
         const piece = currentPieces[dragIdx];
         const pRows = piece.shape.length;
         const pCols = piece.shape[0].length;
-        const targetRow = boardPos.row - Math.floor(pRows/2);
-        const targetCol = boardPos.col - Math.floor(pCols/2);
+        const targetRow = boardPos.row - Math.floor(pRows / 2);
+        const targetCol = boardPos.col - Math.floor(pCols / 2);
 
         // Placement check
         if (canPlace(piece, targetRow, targetCol)) {
@@ -649,14 +752,14 @@ function setupDragAndDrop() {
             // Refresh if all 3 used
             if (currentPieces.every(p => p === null)) {
                 refreshPieces();
-            } else {
+            } else if (!isAnimating) {
                 checkGameOver();
             }
             updateScoreUI();
         }
 
         // Reset piece position
-        pCanvas.style.transform = "none";
+        pCanvas.style.transform = "translate3d(0, 0, 0) scale(1)";
         pCanvas.style.zIndex = "1";
         dragIdx = null;
         drawBoard();
