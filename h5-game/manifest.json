@@ -1,0 +1,11 @@
+{
+  "name": "Block Blast - Neon Arcade",
+  "short_name": "Block Blast",
+  "description": "Free H5 Puzzle Game - Drag and drop blocks to clear rows and columns!",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a1a",
+  "theme_color": "#0a0a1a",
+  "icons": []
+}
