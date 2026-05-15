@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Block Blast - Neon Arcade</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+        
+        body {
+            background: #0a0a1a;
+            color: #fff;
+            font-family: 'Orbitron', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            min-height: 100dvh;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        /* Ambient background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse at 50% 30%, #0d1b2a 0%, transparent 70%),
+                radial-gradient(circle at 30% 20%, rgba(0,204,255,0.06) 0%, transparent 50%),
+                radial-gradient(circle at 70% 80%, rgba(255,0,204,0.04) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        #game-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 420px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px;
+        }
+
+        header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            gap: 12px;
+        }
+
+        .score-box {
+            flex: 1;
+            background: rgba(20, 20, 35, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 10px 16px;
+            border-radius: 14px;
+            text-align: center;
+            border: 1px solid rgba(100, 100, 140, 0.2);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .score-label {
+            font-size: 10px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 400;
+        }
+
+        .score-val {
+            font-size: 26px;
+            font-weight: 700;
+        }
+
+        #score {
+            color: #ffaa00;
+            text-shadow: 0 0 12px rgba(255,170,0,0.5);
+        }
+
+        #combo {
+            color: #00ff88;
+            text-shadow: 0 0 12px rgba(0,255,136,0.5);
+        }
+
+        #board-canvas {
+            background: rgba(15, 15, 25, 0.9);
+            border-radius: 16px;
+            box-shadow: 0 0 40px rgba(0,0,0,0.5), inset 0 0 30px rgba(0,0,0,0.3);
+            border: 1.5px solid rgba(80, 80, 120, 0.3);
+            cursor: pointer;
+        }
+
+        #pieces-container {
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            height: 100px;
+            position: relative;
+        }
+
+        .piece-canvas {
+            background: rgba(255,255,255,0.015);
+            border-radius: 10px;
+            cursor: grab;
+            transition: transform 0.1s cubic-bezier(0.23, 1, 0.32, 1);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .piece-canvas:active {
+            cursor: grabbing;
+            transform: scale(1.15);
+        }
+
+        #game-title {
+            margin-top: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            color: rgba(255,255,255,0.5);
+            text-shadow: 0 0 8px rgba(100,100,200,0.3);
+            text-transform: uppercase;
+        }
+
+        /* Game Over Overlay */
+        #game-over-mask {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.88);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        #game-over-mask.show {
+            display: flex;
+            animation: fadeIn 300ms ease-out;
+        }
+
+        #game-over-mask h1 {
+            font-size: 42px;
+            font-weight: 900;
+            color: #ff3355;
+            text-shadow: 0 0 30px rgba(255,51,85,0.6);
+            margin-bottom: 8px;
+        }
+
+        #game-over-mask .sub-text {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 4px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        #final-score {
+            font-size: 48px;
+            font-weight: 900;
+            color: #ffaa00;
+            text-shadow: 0 0 20px rgba(255,170,0,0.5);
+            margin-bottom: 32px;
+        }
+
+        #restart-btn {
+            background: linear-gradient(135deg, #ffaa00, #ff6600);
+            color: #000;
+            border: none;
+            padding: 14px 36px;
+            font-size: 16px;
+            font-weight: 700;
+            font-family: 'Orbitron', sans-serif;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(255,170,0,0.4), 0 0 40px rgba(255,170,0,0.15);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            transition: transform 0.15s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        #restart-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Combo popup */
+        .combo-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.5);
+            font-size: 36px;
+            font-weight: 900;
+            color: #00ff88;
+            text-shadow: 0 0 20px rgba(0,255,136,0.8), 0 0 40px rgba(0,255,136,0.4);
+            pointer-events: none;
+            z-index: 50;
+            animation: comboPopIn 600ms ease-out forwards;
+            white-space: nowrap;
+        }
+
+        @keyframes comboPopIn {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            30% { opacity: 1; transform: translate(-50%, -50%) scale(1.3); }
+            60% { transform: translate(-50%, -50%) scale(0.95); }
+            80% { opacity: 1; }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Clear flash effect */
+        .clear-flash {
+            position: absolute;
+            background: rgba(255,255,255,0.9);
+            border-radius: 2px;
+            pointer-events: none;
+            animation: clearFlash 200ms ease-out forwards;
+        }
+
+        @keyframes clearFlash {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.08); }
+            100% { opacity: 0; transform: scale(0.85); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <header>
+        <div class="score-box">
+            <div class="score-label">SCORE</div>
+            <div id="score" class="score-val">0</div>
+        </div>
+        <div class="score-box">
+            <div class="score-label">COMBO</div>
+            <div id="combo" class="score-val">0</div>
+        </div>
+    </header>
+    <canvas id="board-canvas" width="360" height="360"></canvas>
+    <div id="pieces-container">
+        <canvas id="piece-0" class="piece-canvas" width="100" height="100"></canvas>
+        <canvas id="piece-1" class="piece-canvas" width="100" height="100"></canvas>
+        <canvas id="piece-2" class="piece-canvas" width="100" height="100"></canvas>
+    </div>
+    <div id="game-title">BLOCK BLAST</div>
+</div>
+
+<div id="game-over-mask">
+    <h1>GAME OVER</h1>
+    <div class="sub-text">Final Score</div>
+    <div id="final-score">0</div>
+    <button id="restart-btn" onclick="initGame()">PLAY AGAIN</button>
+</div>
+
+<script>
+// ============================================================
+// Block Blast H5 - Neon Arcade Edition
+// Core game logic based on user-provided code, enhanced with
+// neon glow rendering, sweep-light clear animations, and
+// responsive canvas sizing.
+// ============================================================
+
+// 1. Core Configuration & Piece Pool
+const GRID_SIZE = 8;
+let BLOCK_SIZE = 45;
+const PIECE_BLOCK_SIZE = 20;
+
+const COLORS = {
+    0: "transparent",
+    1: "#00ff88",  // Neon Green
+    2: "#00ccff",  // Electric Blue
+    3: "#ff00cc",  // Magenta
+    4: "#ffaa00",  // Amber
+    5: "#ff3355"   // Hot Red
+};
+
+const GLOW_COLORS = {
+    1: "rgba(0, 255, 136, 0.6)",
+    2: "rgba(0, 204, 255, 0.6)",
+    3: "rgba(255, 0, 204, 0.6)",
+    4: "rgba(255, 170, 0, 0.6)",
+    5: "rgba(255, 51, 85, 0.6)"
+};
+
+const PIECE_SHAPES = [
+    { shape: [[1]], color: 1 },
+    { shape: [[1, 1]], color: 2 },
+    { shape: [[1],[1]], color: 2 },
+    { shape: [[1, 1], [1, 1]], color: 3 },
+    { shape: [[1, 1, 1]], color: 4 },
+    { shape: [[1],[1],[1]], color: 4 },
+    { shape: [[1,1,1],[0,1,0]], color: 5 },
+    { shape: [[1,0],[1,0],[1,1]], color: 1 },
+    { shape: [[1,1,1,1]], color: 3 },
+    { shape: [[1,1,1],[1,0,0]], color: 2 },
+    { shape: [[1,1,1],[0,0,1]], color: 5 },
+    { shape: [[1,1],[1,0]], color: 4 },
+    { shape: [[1,1,1,1,1]], color: 1 },
+    { shape: [[1],[1],[1],[1],[1]], color: 3 }
+];
+
+// 2. Game State
+let board = [];
+let score = 0;
+let combo = 0;
+let currentPieces = [null, null, null];
+let dragIdx = null;
+let isDragging = false;
+let dragX = 0, dragY = 0;
+let startX = 0, startY = 0;
+
+const canvas = document.getElementById('board-canvas');
+const ctx = canvas.getContext('2d');
+
+// 3. Responsive sizing
+function resizeBoard() {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const maxBoard = Math.min(vw - 40, vh * 0.52, 400);
+    const size = Math.floor(maxBoard / GRID_SIZE) * GRID_SIZE;
+    BLOCK_SIZE = size / GRID_SIZE;
+    canvas.width = size;
+    canvas.height = size;
+    canvas.style.width = size + 'px';
+    canvas.style.height = size + 'px';
+    drawBoard();
+    for (let i = 0; i < 3; i++) drawPiecePreview(i);
+}
+
+// 4. Initialize Game
+function initGame() {
+    board = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(0));
+    score = 0;
+    combo = 0;
+    document.getElementById('game-over-mask').classList.remove('show');
+    document.getElementById('game-over-mask').style.display = 'none';
+    updateScoreUI();
+    refreshPieces();
+    drawBoard();
+}
+
+function updateScoreUI() {
+    document.getElementById('score').innerText = score;
+    document.getElementById('combo').innerText = combo;
+}
+
+function refreshPieces() {
+    for (let i = 0; i < 3; i++) {
+        const randomTemplate = PIECE_SHAPES[Math.floor(Math.random() * PIECE_SHAPES.length)];
+        currentPieces[i] = JSON.parse(JSON.stringify(randomTemplate));
+        drawPiecePreview(i);
+    }
+    checkGameOver();
+}
+
+// 5. Rendering - Neon Glow Style
+function drawBoard(ghostPos = null) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    for (let r = 0; r < GRID_SIZE; r++) {
+        for (let c = 0; c < GRID_SIZE; c++) {
+            const x = c * BLOCK_SIZE;
+            const y = r * BLOCK_SIZE;
+            const val = board[r][c];
+
+            if (val === 0) {
+                // Empty cell - subtle dark grid
+                ctx.fillStyle = "rgba(30, 30, 40, 0.8)";
+                ctx.fillRect(x + 1.5, y + 1.5, BLOCK_SIZE - 3, BLOCK_SIZE - 3);
+                ctx.strokeStyle = "rgba(60, 60, 80, 0.35)";
+                ctx.lineWidth = 0.5;
+                ctx.strokeRect(x + 1.5, y + 1.5, BLOCK_SIZE - 3, BLOCK_SIZE - 3);
+            } else {
+                // Filled cell with neon glow
+                const color = COLORS[val];
+                const glow = GLOW_COLORS[val];
+
+                ctx.shadowColor = glow;
+                ctx.shadowBlur = 8;
+                ctx.fillStyle = color;
+                ctx.fillRect(x + 2, y + 2, BLOCK_SIZE - 4, BLOCK_SIZE - 4);
+                ctx.shadowBlur = 0;
+
+                // Inner highlight (top reflection)
+                ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+                ctx.fillRect(x + 2, y + 2, BLOCK_SIZE - 4, (BLOCK_SIZE - 4) * 0.3);
+            }
+        }
+    }
+
+    // Ghost shadow for drag preview
+    if (ghostPos && dragIdx !== null && currentPieces[dragIdx]) {
+        const piece = currentPieces[dragIdx];
+        const color = COLORS[piece.color];
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = color;
+        ctx.shadowColor = GLOW_COLORS[piece.color];
+        ctx.shadowBlur = 12;
+        for (let r = 0; r < piece.shape.length; r++) {
+            for (let c = 0; c < piece.shape[r].length; c++) {
+                if (piece.shape[r][c]) {
+                    let br = ghostPos.row + r;
+                    let bc = ghostPos.col + c;
+                    if (br >= 0 && br < GRID_SIZE && bc >= 0 && bc < GRID_SIZE) {
+                        ctx.fillRect(bc * BLOCK_SIZE + 2, br * BLOCK_SIZE + 2, BLOCK_SIZE - 4, BLOCK_SIZE - 4);
+                    }
+                }
+            }
+        }
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+    }
+}
+
+function drawPiecePreview(idx) {
+    const pCanvas = document.getElementById(`piece-${idx}`);
+    const pCtx = pCanvas.getContext('2d');
+    pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+    
+    const piece = currentPieces[idx];
+    if (!piece) return;
+
+    const color = COLORS[piece.color];
+    const glow = GLOW_COLORS[piece.color];
+    const rows = piece.shape.length;
+    const cols = piece.shape[0].length;
+    
+    const offsetX = (pCanvas.width - cols * PIECE_BLOCK_SIZE) / 2;
+    const offsetY = (pCanvas.height - rows * PIECE_BLOCK_SIZE) / 2;
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            if (piece.shape[r][c]) {
+                pCtx.shadowColor = glow;
+                pCtx.shadowBlur = 5;
+                pCtx.fillStyle = color;
+                pCtx.fillRect(offsetX + c * PIECE_BLOCK_SIZE + 1, offsetY + r * PIECE_BLOCK_SIZE + 1, PIECE_BLOCK_SIZE - 2, PIECE_BLOCK_SIZE - 2);
+                pCtx.shadowBlur = 0;
+                // Inner highlight
+                pCtx.fillStyle = "rgba(255,255,255,0.2)";
+                pCtx.fillRect(offsetX + c * PIECE_BLOCK_SIZE + 1, offsetY + r * PIECE_BLOCK_SIZE + 1, PIECE_BLOCK_SIZE - 2, (PIECE_BLOCK_SIZE - 2) * 0.3);
+            }
+        }
+    }
+}
+
+// 6. Collision Detection & Clear Logic
+function canPlace(piece, row, col) {
+    if (row < 0 || row + piece.shape.length > GRID_SIZE || col < 0 || col + piece.shape[0].length > GRID_SIZE) return false;
+    for (let r = 0; r < piece.shape.length; r++) {
+        for (let c = 0; c < piece.shape[r].length; c++) {
+            if (piece.shape[r][c] && board[row + r][col + c] !== 0) return false;
+        }
+    }
+    return true;
+}
+
+function showComboPopup(comboVal) {
+    const popup = document.createElement('div');
+    popup.className = 'combo-popup';
+    popup.textContent = `COMBO ×${comboVal}!`;
+    document.body.appendChild(popup);
+    setTimeout(() => popup.remove(), 650);
+}
+
+function showClearFlash(cells) {
+    const boardRect = canvas.getBoundingClientRect();
+    cells.forEach(cell => {
+        const flash = document.createElement('div');
+        flash.className = 'clear-flash';
+        flash.style.left = (boardRect.left + cell.col * BLOCK_SIZE + 2) + 'px';
+        flash.style.top = (boardRect.top + cell.row * BLOCK_SIZE + 2) + 'px';
+        flash.style.width = (BLOCK_SIZE - 4) + 'px';
+        flash.style.height = (BLOCK_SIZE - 4) + 'px';
+        document.body.appendChild(flash);
+        setTimeout(() => flash.remove(), 220);
+    });
+}
+
+function checkAndClear() {
+    let rowsToClear = [];
+    let colsToClear = [];
+    
+    for (let r = 0; r < GRID_SIZE; r++) {
+        if (board[r].every(val => val !== 0)) rowsToClear.push(r);
+    }
+    for (let c = 0; c < GRID_SIZE; c++) {
+        let colFilled = true;
+        for (let r = 0; r < GRID_SIZE; r++) {
+            if (board[r][c] === 0) colFilled = false;
+        }
+        if (colFilled) colsToClear.push(c);
+    }
+
+    let cleared = rowsToClear.length + colsToClear.length;
+    if (cleared > 0) {
+        // Collect cells for flash animation
+        const cells = [];
+        rowsToClear.forEach(r => {
+            for (let c = 0; c < GRID_SIZE; c++) cells.push({ row: r, col: c });
+        });
+        colsToClear.forEach(c => {
+            for (let r = 0; r < GRID_SIZE; r++) cells.push({ row: r, col: c });
+        });
+        showClearFlash(cells);
+
+        combo++;
+        score += cleared * 10 * combo;
+        showComboPopup(combo);
+
+        // Delay actual clear for animation
+        setTimeout(() => {
+            rowsToClear.forEach(r => board[r].fill(0));
+            colsToClear.forEach(c => {
+                for (let r = 0; r < GRID_SIZE; r++) board[r][c] = 0;
+            });
+            drawBoard();
+        }, 180);
+    } else {
+        combo = 0;
+    }
+    updateScoreUI();
+}
+
+function checkGameOver() {
+    let hasValidMove = false;
+    for (let i = 0; i < 3; i++) {
+        if (!currentPieces[i]) continue;
+        for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+                if (canPlace(currentPieces[i], r, c)) {
+                    hasValidMove = true;
+                    break;
+                }
+            }
+            if (hasValidMove) break;
+        }
+        if (hasValidMove) break;
+    }
+    if (!hasValidMove && currentPieces.some(p => p !== null)) {
+        document.getElementById('final-score').innerText = score;
+        const mask = document.getElementById('game-over-mask');
+        mask.style.display = 'flex';
+        mask.classList.add('show');
+    }
+}
+
+// 7. Drag & Drop Interaction (Mouse + Touch)
+function getBoardCellFromClient(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const col = Math.floor(x / (rect.width / GRID_SIZE));
+    const row = Math.floor(y / (rect.height / GRID_SIZE));
+    return { row, col };
+}
+
+function setupDragAndDrop() {
+    for (let i = 0; i < 3; i++) {
+        const pCanvas = document.getElementById(`piece-${i}`);
+        
+        const startDrag = (e) => {
+            if (!currentPieces[i]) return;
+            e.preventDefault();
+            dragIdx = i;
+            isDragging = true;
+            const touch = e.touches ? e.touches[0] : e;
+            startX = touch.clientX;
+            startY = touch.clientY;
+            pCanvas.style.transform = "scale(1.2)";
+            pCanvas.style.zIndex = "10";
+        };
+
+        pCanvas.addEventListener('mousedown', startDrag);
+        pCanvas.addEventListener('touchstart', startDrag, { passive: false });
+    }
+
+    const moveDrag = (e) => {
+        if (!isDragging || dragIdx === null) return;
+        if (e.cancelable) e.preventDefault();
+        const touch = e.touches ? e.touches[0] : e;
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+        
+        const pCanvas = document.getElementById(`piece-${dragIdx}`);
+        pCanvas.style.transform = `translate(${dx}px, ${dy}px) scale(1.3)`;
+
+        // Calculate ghost position on board
+        const boardPos = getBoardCellFromClient(touch.clientX, touch.clientY);
+        const pRows = currentPieces[dragIdx].shape.length;
+        const pCols = currentPieces[dragIdx].shape[0].length;
+        const ghostRow = boardPos.row - Math.floor(pRows/2);
+        const ghostCol = boardPos.col - Math.floor(pCols/2);
+
+        if (ghostRow >= 0 && ghostRow + pRows <= GRID_SIZE && ghostCol >= 0 && ghostCol + pCols <= GRID_SIZE) {
+            drawBoard({ row: ghostRow, col: ghostCol });
+        } else {
+            drawBoard();
+        }
+    };
+
+    const stopDrag = (e) => {
+        if (!isDragging || dragIdx === null) return;
+        isDragging = false;
+        const pCanvas = document.getElementById(`piece-${dragIdx}`);
+        
+        const touch = e.changedTouches ? e.changedTouches[0] : e;
+        const boardPos = getBoardCellFromClient(touch.clientX, touch.clientY);
+        
+        const piece = currentPieces[dragIdx];
+        const pRows = piece.shape.length;
+        const pCols = piece.shape[0].length;
+        const targetRow = boardPos.row - Math.floor(pRows/2);
+        const targetCol = boardPos.col - Math.floor(pCols/2);
+
+        // Placement check
+        if (canPlace(piece, targetRow, targetCol)) {
+            for (let r = 0; r < pRows; r++) {
+                for (let c = 0; c < pCols; c++) {
+                    if (piece.shape[r][c]) board[targetRow + r][targetCol + c] = piece.color;
+                }
+            }
+            score += piece.shape.flat().filter(Boolean).length;
+            currentPieces[dragIdx] = null;
+            pCanvas.getContext('2d').clearRect(0, 0, pCanvas.width, pCanvas.height);
+            
+            checkAndClear();
+            
+            // Refresh if all 3 used
+            if (currentPieces.every(p => p === null)) {
+                refreshPieces();
+            } else {
+                checkGameOver();
+            }
+            updateScoreUI();
+        }
+
+        // Reset piece position
+        pCanvas.style.transform = "none";
+        pCanvas.style.zIndex = "1";
+        dragIdx = null;
+        drawBoard();
+    };
+
+    window.addEventListener('mousemove', moveDrag);
+    window.addEventListener('touchmove', moveDrag, { passive: false });
+    window.addEventListener('mouseup', stopDrag);
+    window.addEventListener('touchend', stopDrag);
+}
+
+// 8. Start
+window.onload = () => {
+    resizeBoard();
+    initGame();
+    setupDragAndDrop();
+};
+
+window.addEventListener('resize', () => {
+    resizeBoard();
+});
+</script>
+</body>
+</html>
