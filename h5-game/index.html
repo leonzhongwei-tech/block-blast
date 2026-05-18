@@ -90,6 +90,7 @@ var PIECE_SHAPES=SMALL_PIECES.concat(LARGE_PIECES);
 var board=[],score=0,combo=0,currentPieces=[null,null,null],dragIdx=null,isDragging=false,startX=0,startY=0;
 var ticking=false,lastTouchX=0,lastTouchY=0,animatingCells=[],isAnimating=false;
 var canvas=document.getElementById('board-canvas'),ctx=canvas.getContext('2d');
+var cachedRect=null;
 
 function hideLoadingScreen(){
     var loader=document.getElementById('loading-screen');
@@ -250,8 +251,9 @@ function checkGameOver(){
     }
 }
 
+function cacheBoardRect(){cachedRect=canvas.getBoundingClientRect()}
 function getBoardCellFromClient(clientX,clientY){
-    var rect=canvas.getBoundingClientRect();
+    var rect=cachedRect||canvas.getBoundingClientRect();
     return{row:Math.floor((clientY-rect.top)/(rect.height/GRID_SIZE)),col:Math.floor((clientX-rect.left)/(rect.width/GRID_SIZE))};
 }
 
@@ -273,6 +275,7 @@ function setupDragAndDrop(){
             var pCanvas=document.getElementById('piece-'+i);
             var startDrag=function(e){
                 if(!currentPieces[i]||isAnimating)return;e.preventDefault();
+                cacheBoardRect();
                 dragIdx=i;isDragging=true;
                 var touch=e.touches?e.touches[0]:e;startX=touch.clientX;startY=touch.clientY;
                 lastTouchX=startX;lastTouchY=startY;
@@ -282,7 +285,8 @@ function setupDragAndDrop(){
         })(i);
     }
     var moveDrag=function(e){
-        if(!isDragging||dragIdx===null)return;if(e.cancelable)e.preventDefault();
+        e.preventDefault();
+        if(!isDragging||dragIdx===null)return;
         var touch=e.touches?e.touches[0]:e;lastTouchX=touch.clientX;lastTouchY=touch.clientY;
         if(!ticking){window.requestAnimationFrame(function(){updateDragUI(lastTouchX,lastTouchY);ticking=false});ticking=true}
     };
@@ -323,7 +327,7 @@ function startGame(){
 }
 window.addEventListener('load',startGame);
 setTimeout(startGame,3000);
-window.addEventListener('resize',function(){resizeBoard()});
+window.addEventListener('resize',function(){resizeBoard();cacheBoardRect()});
 </script>
 
 <!-- 优化四：第三方 SDK 非阻塞加载预留位 -->
