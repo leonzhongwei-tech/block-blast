@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'deployment_status' || github.event.deployment_status.state == 'success'
     steps:
-      - name: "🌏 Southeast Asia - 10 nodes (Singapore, Malaysia, Indonesia, Thailand, Vietnam )"
+      - name: "🌏 Southeast Asia - 10 nodes (Singapore, Malaysia, Indonesia, Thailand, Vietnam)"
         run: |
           RESOURCES="/ /audio/sprite.webm /audio/sprite.m4a /sw.js /manifest.json"
           for path in $RESOURCES; do
@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'deployment_status' || github.event.deployment_status.state == 'success'
     steps:
-      - name: "🌏 East Asia - 8 nodes (Japan, Hong Kong, Taiwan, South Korea )"
+      - name: "🌏 East Asia - 8 nodes (Japan, Hong Kong, Taiwan, South Korea)"
         run: |
           RESOURCES="/ /audio/sprite.webm /audio/sprite.m4a /sw.js /manifest.json"
           for path in $RESOURCES; do
@@ -157,7 +157,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'deployment_status' || github.event.deployment_status.state == 'success'
     steps:
-      - name: "🌍 Africa - 6 nodes (South Africa, Nigeria, Kenya, Egypt )"
+      - name: "🌍 Africa - 6 nodes (South Africa, Nigeria, Kenya, Egypt)"
         run: |
           RESOURCES="/ /audio/sprite.webm /audio/sprite.m4a /sw.js /manifest.json"
           for path in $RESOURCES; do
@@ -191,7 +191,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'deployment_status' || github.event.deployment_status.state == 'success'
     steps:
-      - name: "🌏 Oceania - 4 nodes (Australia, New Zealand )"
+      - name: "🌏 Oceania - 4 nodes (Australia, New Zealand)"
         run: |
           RESOURCES="/ /audio/sprite.webm /audio/sprite.m4a /sw.js /manifest.json"
           for path in $RESOURCES; do
@@ -219,7 +219,7 @@ jobs:
             sleep 1
           done
 
-      - name: "🌍 Eastern Europe - 6 nodes (Poland, Romania, Turkey, Ukraine )"
+      - name: "🌍 Eastern Europe - 6 nodes (Poland, Romania, Turkey, Ukraine)"
         run: |
           RESOURCES="/ /audio/sprite.webm /audio/sprite.m4a /sw.js /manifest.json"
           for path in $RESOURCES; do
@@ -278,7 +278,7 @@ jobs:
                   \"headers\": {\"Accept-Encoding\": \"br, gzip\"}
                 }
               }
-            }" )
+            }")
           
           MEASUREMENT_ID=$(echo "$RESPONSE" | jq -r '.id // empty')
           PROBES=$(echo "$RESPONSE" | jq -r '.probesCount // 0')
@@ -295,7 +295,7 @@ jobs:
           if [ -n "$MEASUREMENT_ID" ]; then
             curl -s -H "Authorization: Bearer $GLOBALPING_TOKEN" \
               "https://api.globalping.io/v1/measurements/$MEASUREMENT_ID" | \
-              jq -r '.results[] | "\(.probe.continent ) | \(.probe.city), \(.probe.country) | TTFB: \(.result.timings.firstByte)ms | Total: \(.result.timings.total)ms | Cache: \(.result.headers["x-vercel-cache"] // "N/A")"' | \
+              jq -r '.results[] | "\(.probe.continent) | \(.probe.city), \(.probe.country) | TTFB: \(.result.timings.firstByte)ms | Total: \(.result.timings.total)ms | Cache: \(.result.headers["x-vercel-cache"] // "N/A")"' | \
               sort
           fi
           
