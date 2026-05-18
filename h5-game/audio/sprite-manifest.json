@@ -1,25 +1,10 @@
 {
-  "src": "audio-sprite",
+  "src": "audio-sprite-v2",
+  "description": "Professional game SFX - punchy place, sparkle clear, arpeggio combo, dramatic gameover",
   "sprite": {
-    "place": {
-      "start": 0,
-      "end": 80,
-      "duration": 80
-    },
-    "clear": {
-      "start": 130,
-      "end": 480,
-      "duration": 350
-    },
-    "combo": {
-      "start": 530,
-      "end": 1030,
-      "duration": 500
-    },
-    "gameover": {
-      "start": 1080,
-      "end": 2080,
-      "duration": 1000
-    }
+    "place": { "start": 0, "end": 120 },
+    "clear": { "start": 170, "end": 620 },
+    "combo": { "start": 670, "end": 1270 },
+    "gameover": { "start": 1320, "end": 2520 }
   }
 }
