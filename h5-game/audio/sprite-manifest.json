@@ -1,0 +1,25 @@
+{
+  "src": "audio-sprite",
+  "sprite": {
+    "place": {
+      "start": 0,
+      "end": 80,
+      "duration": 80
+    },
+    "clear": {
+      "start": 130,
+      "end": 480,
+      "duration": 350
+    },
+    "combo": {
+      "start": 530,
+      "end": 1030,
+      "duration": 500
+    },
+    "gameover": {
+      "start": 1080,
+      "end": 2080,
+      "duration": 1000
+    }
+  }
+}

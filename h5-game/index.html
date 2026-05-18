@@ -11,6 +11,10 @@
 <link rel="dns-prefetch" href="https://fonts.gstatic.com">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 关键资源预加载：Audio Sprite（最大静态资源 ~20KB） -->
+<link rel="preload" href="/audio/sprite.webm" as="audio" type="audio/webm">
+<link rel="preload" href="/audio/sprite.m4a" as="audio" type="audio/mp4">
+<!-- 字体预加载 -->
 <link rel="preload" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap"></noscript>
 <style>
@@ -84,6 +88,104 @@ header{width:100%;display:flex;justify-content:space-between;align-items:center;
 </div>
 
 <script>
+// ============================================================
+// Audio Sprite System - 单文件加载，时间戳播放，极低延迟
+// ============================================================
+var AudioSprite=(function(){
+    var audioCtx=null,buffer=null,loaded=false,unlocked=false;
+    // 音效时间戳映射（毫秒）
+    var sprites={
+        place:{start:0,end:80},
+        clear:{start:130,end:480},
+        combo:{start:530,end:1030},
+        gameover:{start:1080,end:2080}
+    };
+
+    function getContext(){
+        if(!audioCtx){
+            var AC=window.AudioContext||window.webkitAudioContext;
+            if(AC)audioCtx=new AC();
+        }
+        return audioCtx;
+    }
+
+    function unlock(){
+        if(unlocked)return;
+        var ctx=getContext();
+        if(!ctx)return;
+        // iOS/Chrome 需要用户交互后 resume
+        if(ctx.state==='suspended')ctx.resume();
+        // 播放一个静音 buffer 解锁
+        var silentBuf=ctx.createBuffer(1,1,22050);
+        var src=ctx.createBufferSource();
+        src.buffer=silentBuf;src.connect(ctx.destination);
+        src.start(0);
+        unlocked=true;
+    }
+
+    function load(){
+        var ctx=getContext();
+        if(!ctx)return;
+        // 检测支持格式
+        var audio=document.createElement('audio');
+        var canWebm=audio.canPlayType('audio/webm;codecs=opus');
+        var url=canWebm?'/audio/sprite.webm':'/audio/sprite.m4a';
+
+        var xhr=new XMLHttpRequest();
+        xhr.open('GET',url,true);
+        xhr.responseType='arraybuffer';
+        xhr.onload=function(){
+            if(xhr.status===200){
+                ctx.decodeAudioData(xhr.response,function(decodedBuffer){
+                    buffer=decodedBuffer;
+                    loaded=true;
+                    console.log('Audio Sprite loaded: '+url+' ('+Math.round(xhr.response.byteLength/1024)+'KB)');
+                },function(err){
+                    console.warn('Audio decode failed:',err);
+                });
+            }
+        };
+        xhr.onerror=function(){console.warn('Audio Sprite load failed')};
+        xhr.send();
+    }
+
+    function play(name){
+        if(!loaded||!buffer)return;
+        var sprite=sprites[name];
+        if(!sprite)return;
+        var ctx=getContext();
+        if(!ctx)return;
+        if(ctx.state==='suspended')ctx.resume();
+
+        var startTime=sprite.start/1000;
+        var duration=(sprite.end-sprite.start)/1000;
+        var source=ctx.createBufferSource();
+        source.buffer=buffer;
+        // 增益节点控制音量
+        var gainNode=ctx.createGain();
+        gainNode.gain.value=0.6;
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        source.start(0,startTime,duration);
+    }
+
+    return{
+        load:load,
+        unlock:unlock,
+        play:play,
+        isLoaded:function(){return loaded}
+    };
+})();
+
+// 首次用户交互时解锁音频上下文
+document.addEventListener('touchstart',AudioSprite.unlock,{once:true,passive:true});
+document.addEventListener('mousedown',AudioSprite.unlock,{once:true,passive:true});
+// 立即开始加载音频 Sprite
+AudioSprite.load();
+
+// ============================================================
+// Game Core
+// ============================================================
 var GRID_SIZE=8,BLOCK_SIZE=45,PIECE_BLOCK_SIZE=20;
 var COLORS={0:"transparent",1:"#00ff88",2:"#00ccff",3:"#ff00cc",4:"#ffaa00",5:"#ff3355"};
 var GLOW_COLORS={1:"rgba(0,255,136,.6)",2:"rgba(0,204,255,.6)",3:"rgba(255,0,204,.6)",4:"rgba(255,170,0,.6)",5:"rgba(255,51,85,.6)"};
@@ -210,6 +312,9 @@ function checkAndClear(){
         rowsToClear.forEach(function(r){for(var c=0;c<GRID_SIZE;c++)animatingCells.push({r:r,c:c,alpha:1,scale:1})});
         colsToClear.forEach(function(c){for(var r=0;r<GRID_SIZE;r++)if(!animatingCells.some(function(cell){return cell.r===r&&cell.c===c}))animatingCells.push({r:r,c:c,alpha:1,scale:1})});
         combo++;score+=cleared*10*combo;showComboPopup(combo);isAnimating=true;
+        // 音效：消除时播放 clear，连击时播放 combo
+        if(combo>1)AudioSprite.play('combo');
+        else AudioSprite.play('clear');
         playClearAnimation(function(){
             rowsToClear.forEach(function(r){board[r].fill(0)});
             colsToClear.forEach(function(c){for(var r=0;r<GRID_SIZE;r++)board[r][c]=0});
@@ -251,6 +356,8 @@ function checkGameOver(){
     if(!hasValidMove&&currentPieces.some(function(p){return p!==null})){
         document.getElementById('final-score').innerText=score;
         var mask=document.getElementById('game-over-mask');mask.style.display='flex';mask.classList.add('show');
+        // 音效：Game Over
+        AudioSprite.play('gameover');
     }
 }
 
@@ -304,6 +411,8 @@ function setupDragAndDrop(){
             for(var r=0;r<pRows;r++)for(var c=0;c<pCols;c++)if(piece.shape[r][c])board[targetRow+r][targetCol+c]=piece.color;
             score+=piece.shape.flat().filter(Boolean).length;currentPieces[dragIdx]=null;
             pCanvas.getContext('2d').clearRect(0,0,pCanvas.width,pCanvas.height);
+            // 音效：放置方块
+            AudioSprite.play('place');
             checkAndClear();
             if(currentPieces.every(function(p){return p===null}))refreshPieces();
             else if(!isAnimating)checkGameOver();

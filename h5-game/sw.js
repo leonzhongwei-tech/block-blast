@@ -1,7 +1,10 @@
-const CACHE_NAME = 'block-blast-v2';
+const CACHE_NAME = 'block-blast-v3';
 const ASSETS = [
     '/',
-    '/index.html'
+    '/index.html',
+    '/manifest.json',
+    '/audio/sprite.webm',
+    '/audio/sprite.m4a'
 ];
 
 self.addEventListener('install', e => {
@@ -27,6 +30,7 @@ self.addEventListener('fetch', e => {
     e.respondWith(
         caches.match(e.request).then(cachedResponse => {
             if (cachedResponse) {
+                // Stale-while-revalidate: 返回缓存同时后台更新
                 fetch(e.request).then(networkResponse => {
                     if (networkResponse && networkResponse.status === 200) {
                         caches.open(CACHE_NAME).then(cache => {
