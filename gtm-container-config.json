@@ -159,6 +159,11 @@
             "value": "cpe_conversion"
           },
           {
+            "type": "TEMPLATE",
+            "key": "measurementIdOverride",
+            "value": "G-XXXXXXXXXX"
+          },
+          {
             "type": "LIST",
             "key": "eventParameters",
             "list": [
@@ -223,11 +228,6 @@
                 ]
               }
             ]
-          },
-          {
-            "type": "TAG_REFERENCE",
-            "key": "measurementId",
-            "value": "GA4 Configuration"
           }
         ],
         "firingTriggerId": [
