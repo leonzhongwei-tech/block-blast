@@ -418,6 +418,7 @@ function checkGameOver(){
     }
 }
 
+var touchOffsetY = 50; // 触控偏移：方块显示在手指上方的像素数
 function cacheBoardRect(){cachedRect=canvas.getBoundingClientRect()}
 function getBoardCellFromClient(clientX,clientY){
     var rect=cachedRect||canvas.getBoundingClientRect();
@@ -426,10 +427,10 @@ function getBoardCellFromClient(clientX,clientY){
 
 function updateDragUI(clientX,clientY){
     if(dragIdx===null||!currentPieces[dragIdx])return;
-    var dx=clientX-startX,dy=clientY-startY;
+    var dx=clientX-startX,dy=(clientY-touchOffsetY)-startY;
     var pCanvas=document.getElementById('piece-'+dragIdx);
     pCanvas.style.transform='translate3d('+dx+'px,'+dy+'px,0) scale(1.3)';
-    var boardPos=getBoardCellFromClient(clientX,clientY);
+    var boardPos=getBoardCellFromClient(clientX,clientY-touchOffsetY);
     var pRows=currentPieces[dragIdx].shape.length,pCols=currentPieces[dragIdx].shape[0].length;
     var ghostRow=boardPos.row-Math.floor(pRows/2),ghostCol=boardPos.col-Math.floor(pCols/2);
     if(ghostRow>=0&&ghostRow+pRows<=GRID_SIZE&&ghostCol>=0&&ghostCol+pCols<=GRID_SIZE)drawBoard({row:ghostRow,col:ghostCol});
@@ -461,7 +462,7 @@ function setupDragAndDrop(){
         if(!isDragging||dragIdx===null)return;isDragging=false;ticking=false;
         var pCanvas=document.getElementById('piece-'+dragIdx);pCanvas.classList.remove('dragging');
         var touch=e.changedTouches?e.changedTouches[0]:e;
-        var boardPos=getBoardCellFromClient(touch.clientX,touch.clientY);
+        var boardPos=getBoardCellFromClient(touch.clientX,touch.clientY-touchOffsetY);
         var piece=currentPieces[dragIdx],pRows=piece.shape.length,pCols=piece.shape[0].length;
         var targetRow=boardPos.row-Math.floor(pRows/2),targetCol=boardPos.col-Math.floor(pCols/2);
         if(canPlace(piece,targetRow,targetCol)){
