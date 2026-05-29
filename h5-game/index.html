@@ -817,6 +817,7 @@ function setupDragAndDrop(){
         if(!ticking){window.requestAnimationFrame(function(){updateDragUI(lastTouchX,lastTouchY);ticking=false});ticking=true}
     };
     var stopDrag=function(e){
+        e.preventDefault(); // Block residual browser default on touchend
         if(!isDragging||dragIdx===null)return;isDragging=false;ticking=false;
         var pCanvas=document.getElementById('piece-'+dragIdx);pCanvas.classList.remove('dragging');
         var touch=e.changedTouches?e.changedTouches[0]:e;
@@ -838,7 +839,7 @@ function setupDragAndDrop(){
         pCanvas.style.transform="translate3d(0,0,0) scale(1)";pCanvas.style.zIndex="1";dragIdx=null;ghostPos=null;needsRedraw=true;
     };
     window.addEventListener('mousemove',moveDrag);window.addEventListener('touchmove',moveDrag,{passive:false});
-    window.addEventListener('mouseup',stopDrag);window.addEventListener('touchend',stopDrag);
+    window.addEventListener('mouseup',stopDrag);window.addEventListener('touchend',stopDrag,{passive:false});
 }
 
 // ============================================================
