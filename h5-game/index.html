@@ -857,8 +857,25 @@ function nextLevel(){
     currentLevel++;
     levelScore=0;
     document.getElementById('level-complete-overlay').style.display='none';
+    // Reset game-over / revive state
+    document.getElementById('game-over-mask').classList.remove('show');
+    document.getElementById('game-over-mask').style.display='none';
+    hideRevivePanel();
+    hasRevived=false;
+    // Ensure playable pieces for next level
+    if(currentPieces.every(function(p){return p===null}))refreshPieces();
+    else{
+        // Check if current pieces can be placed; if not, force refresh
+        var hasValid=false;
+        for(var i=0;i<3;i++){
+            if(!currentPieces[i])continue;
+            for(var r=0;r<GRID_SIZE&&!hasValid;r++)for(var c=0;c<GRID_SIZE&&!hasValid;c++)if(canPlace(currentPieces[i],r,c))hasValid=true;
+        }
+        if(!hasValid)refreshPieces();
+    }
     updateScoreUI();
     needsRedraw=true;
+    for(var i=0;i<3;i++)drawPiecePreview(i);
     saveGameState();
 
     // L15 触发 GA4 AchieveLevel 回传
@@ -1138,6 +1155,13 @@ function setupDragAndDrop(){
             else if(!isAnimating)checkGameOver();
             updateScoreUI();
             checkLevelComplete();
+            // 如果已通关，取消 game-over/revive 状态（通关优先级高于死局）
+            var lcOverlay=document.getElementById('level-complete-overlay');
+            if(lcOverlay&&lcOverlay.style.display==='flex'){
+                document.getElementById('game-over-mask').classList.remove('show');
+                document.getElementById('game-over-mask').style.display='none';
+                hideRevivePanel();
+            }
             saveGameState();
         }else{
             // 无法放置：缓动弹回动画
