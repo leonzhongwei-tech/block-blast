@@ -523,7 +523,9 @@ function drawBoard(ghostPos){
     }
     if(ghostPos&&dragIdx!==null&&currentPieces[dragIdx]){
         var piece=currentPieces[dragIdx],color=COLORS[piece.color];
-        ctx.globalAlpha=.35;ctx.fillStyle=color;
+        // Breathing pulse: sin wave oscillates alpha between 0.25 and 0.45
+        var breathAlpha=0.35+0.1*Math.sin(performance.now()/300);
+        ctx.globalAlpha=breathAlpha;ctx.fillStyle=color;
         for(var r=0;r<piece.shape.length;r++){
             for(var c=0;c<piece.shape[r].length;c++){
                 if(piece.shape[r][c]){
