@@ -493,6 +493,62 @@ var PlacementFlash=(function(){
     return{emit:emit,update:update,draw:draw,hasFlash:hasFlash,clear:clear};
 })();
 
+// ============================================================
+// LevelSweep - 关卡过渡扫除动画（从上到下逐行扫除棋盘）
+// ============================================================
+var LevelSweep=(function(){
+    var active=false,startTime=0,onComplete=null;
+    var ROW_DELAY=80,ROW_DURATION=150;
+    var totalDuration=0;
+
+    function start(callback){
+        active=true;
+        startTime=performance.now();
+        totalDuration=GRID_SIZE*ROW_DELAY+ROW_DURATION;
+        onComplete=callback;
+    }
+
+    function update(){
+        if(!active)return false;
+        var elapsed=performance.now()-startTime;
+        if(elapsed>=totalDuration){
+            active=false;
+            if(onComplete){onComplete();onComplete=null;}
+            return false;
+        }
+        return true;
+    }
+
+    function draw(c,blockSize){
+        if(!active)return;
+        var elapsed=performance.now()-startTime;
+        for(var r=0;r<GRID_SIZE;r++){
+            var rowStart=r*ROW_DELAY;
+            var rowProgress=Math.max(0,Math.min(1,(elapsed-rowStart)/ROW_DURATION));
+            if(rowProgress<=0)continue;
+            // 白色闪光扫过
+            var alpha=rowProgress<0.5?rowProgress*2*0.8:(1-rowProgress)*2*0.8;
+            c.globalAlpha=alpha;
+            c.fillStyle='#ffffff';
+            c.fillRect(0,r*blockSize,GRID_SIZE*blockSize,blockSize);
+            // 扫过后变暗
+            if(rowProgress>0.5){
+                c.globalAlpha=(rowProgress-0.5)*2*0.6;
+                c.fillStyle='#000000';
+                c.fillRect(0,r*blockSize,GRID_SIZE*blockSize,blockSize);
+            }
+        }
+        c.globalAlpha=1;
+    }
+
+    function isActive(){return active;}
+    function reset(){active=false;onComplete=null;}
+
+    return{start:start,update:update,draw:draw,isActive:isActive,reset:reset};
+})();
+
+var isTransitioning=false; // 关卡过渡期间锁定输入
+
 var canvas=document.getElementById('board-canvas'),ctx=canvas.getContext('2d');
 var cachedRect=null;
 
@@ -873,45 +929,71 @@ function fireGA4AchieveLevel(level){
 
 function nextLevel(){
     var completedLevel=currentLevel;
-    currentLevel++;
-    levelScore=0;
-    document.getElementById('level-complete-overlay').style.display='none';
-    // Reset game-over / revive state
-    document.getElementById('game-over-mask').classList.remove('show');
-    document.getElementById('game-over-mask').style.display='none';
-    hideRevivePanel();
-    hasRevived=false;
-    // Ensure playable pieces for next level
-    if(currentPieces.every(function(p){return p===null}))refreshPieces();
-    else{
-        // Check if current pieces can be placed; if not, force refresh
-        var hasValid=false;
-        for(var i=0;i<3;i++){
-            if(!currentPieces[i])continue;
-            for(var r=0;r<GRID_SIZE&&!hasValid;r++)for(var c=0;c<GRID_SIZE&&!hasValid;c++)if(canPlace(currentPieces[i],r,c))hasValid=true;
-        }
-        if(!hasValid)refreshPieces();
-    }
-    updateScoreUI();
-    needsRedraw=true;
-    for(var i=0;i<3;i++)drawPiecePreview(i);
-    saveGameState();
+    var nextLv=currentLevel+1;
 
     // L15 触发 GA4 AchieveLevel 回传
     if(completedLevel===15){
         fireGA4AchieveLevel(completedLevel);
     }
 
-    // 新手保护：前3关不触发广告
-    if(completedLevel<=3){
-        console.log('[AdManager] Newbie protection: skipping interstitial for level '+completedLevel);
-        return;
-    }
+    // 关闭通关弹窗，锁定输入
+    document.getElementById('level-complete-overlay').style.display='none';
+    isTransitioning=true;
 
-    // >3关：尝试显示插屏广告（60秒冷却）
-    tryShowInterstitial().then(function(shown){
-        if(shown)console.log('[AdManager] Interstitial completed after level '+completedLevel);
+    // 启动扫除动画
+    LevelSweep.start(function(){
+        // 动画完成回调：清空棋盘
+        for(var r=0;r<GRID_SIZE;r++)board[r].fill(0);
+
+        // 更新关卡状态
+        currentLevel=nextLv;
+        levelScore=0;
+        document.getElementById('game-over-mask').classList.remove('show');
+        document.getElementById('game-over-mask').style.display='none';
+        hideRevivePanel();
+        hasRevived=false;
+
+        // 强制刷新底部方块（根据新关卡难度）
+        refreshPieces();
+        updateScoreUI();
+        needsRedraw=true;
+        for(var i=0;i<3;i++)drawPiecePreview(i);
+
+        // 显示 "Level X" 提示文字
+        showLevelIntro(nextLv);
+        setTimeout(function(){
+            hideLevelIntro();
+            isTransitioning=false;
+            saveGameState();
+        },1200); // 1.2秒后恢复输入
     });
+
+    needsRedraw=true;
+
+    // 新手保护：前3关不触发广告
+    if(completedLevel>3){
+        tryShowInterstitial().then(function(shown){
+            if(shown)console.log('[AdManager] Interstitial completed after level '+completedLevel);
+        });
+    }
+}
+
+function showLevelIntro(lv){
+    var el=document.getElementById('level-intro-overlay');
+    if(!el){
+        el=document.createElement('div');
+        el.id='level-intro-overlay';
+        el.style.cssText='position:fixed;inset:0;z-index:250;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;animation:fadeIn 200ms ease-out';
+        el.innerHTML='<div style="text-align:center;animation:comboPopIn 600ms ease-out"><div id="level-intro-text" style="font-size:2.5rem;font-weight:900;color:#00ff88;text-shadow:0 0 40px rgba(0,255,136,0.7),0 0 80px rgba(0,255,136,0.3);font-family:Orbitron,monospace,system-ui;letter-spacing:0.1em"></div><div style="font-size:1rem;color:rgba(255,255,255,0.7);text-shadow:0 0 10px rgba(255,255,255,0.3);font-family:Orbitron,monospace,system-ui;margin-top:0.5rem">GET READY</div></div>';
+        document.body.appendChild(el);
+    }
+    document.getElementById('level-intro-text').textContent='LEVEL '+lv;
+    el.style.display='flex';
+}
+
+function hideLevelIntro(){
+    var el=document.getElementById('level-intro-overlay');
+    if(el)el.style.display='none';
 }
 
 var hasRevived=false; // 每局只能复活一次
@@ -1133,7 +1215,7 @@ function setupDragAndDrop(){
         (function(i){
             var pCanvas=document.getElementById('piece-'+i);
             var startDrag=function(e){
-                if(!currentPieces[i]||isAnimating)return;e.preventDefault();
+                if(!currentPieces[i]||isAnimating||isTransitioning)return;e.preventDefault();
                 cacheBoardRect();
                 dragIdx=i;isDragging=true;
                 var touch=e.touches?e.touches[0]:e;startX=touch.clientX;startY=touch.clientY;
@@ -1232,6 +1314,10 @@ function gameLoop(){
     var flashAlive=PlacementFlash.update();
     if(flashAlive)needsRedraw=true;
 
+    // LevelSweep 动画更新
+    var sweepAlive=LevelSweep.update();
+    if(sweepAlive)needsRedraw=true;
+
     // 拖拽中持续重绘（因为 ghost 位置在变化）
     if(isDragging)needsRedraw=true;
 
@@ -1253,6 +1339,8 @@ function gameLoop(){
                 }
             });
         }
+        // LevelSweep 扫除动画叠加
+        if(sweepAlive)LevelSweep.draw(ctx,BLOCK_SIZE);
         // 粒子叠加
         ParticleSystem.draw(ctx);
     }
