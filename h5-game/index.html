@@ -509,9 +509,10 @@ var canvasReady=false;
 
 // === localStorage 自动保存/恢复 ===
 var SAVE_KEY='bb_game_state';
+var SAVE_VERSION=2;
 function saveGameState(){
     try{
-        var state={board:board,score:score,combo:combo,level:currentLevel,levelScore:levelScore,pieces:currentPieces,timestamp:Date.now()};
+        var state={version:SAVE_VERSION,board:board,score:score,combo:combo,level:currentLevel,levelScore:levelScore,pieces:currentPieces,timestamp:Date.now()};
         localStorage.setItem(SAVE_KEY,JSON.stringify(state));
     }catch(e){}
 }
@@ -523,8 +524,18 @@ function loadGameState(){
         var raw=localStorage.getItem(SAVE_KEY);
         if(!raw)return null;
         var state=JSON.parse(raw);
-        if(state&&state.board&&state.board.length===GRID_SIZE&&typeof state.score==='number')return state;
-    }catch(e){}
+        // Version check
+        if(!state||state.version!==SAVE_VERSION){localStorage.removeItem(SAVE_KEY);return null}
+        // Validate board
+        if(!state.board||!Array.isArray(state.board)||state.board.length!==GRID_SIZE){localStorage.removeItem(SAVE_KEY);return null}
+        for(var r=0;r<GRID_SIZE;r++){if(!Array.isArray(state.board[r])||state.board[r].length!==GRID_SIZE){localStorage.removeItem(SAVE_KEY);return null}}
+        // Validate score
+        if(typeof state.score!=='number'||isNaN(state.score)){localStorage.removeItem(SAVE_KEY);return null}
+        // Validate pieces
+        if(!Array.isArray(state.pieces)||state.pieces.length!==3){localStorage.removeItem(SAVE_KEY);return null}
+        for(var i=0;i<state.pieces.length;i++){var p=state.pieces[i];if(p!==null){if(!p.shape||!Array.isArray(p.shape)||p.shape.length===0||!Array.isArray(p.shape[0])||typeof p.color!=='number'){localStorage.removeItem(SAVE_KEY);return null}}}
+        return state;
+    }catch(e){localStorage.removeItem(SAVE_KEY)}
     return null;
 }
 
@@ -557,18 +568,25 @@ function initGame(forceNew){
 }
 
 function restoreGameState(saved){
-    board=saved.board;
-    score=saved.score;
-    combo=saved.combo||0;
-    currentLevel=saved.level||1;
-    levelScore=saved.levelScore||0;
-    currentPieces=saved.pieces;
-    updateScoreUI();
-    needsRedraw=true;
-    for(var i=0;i<3;i++)drawPiecePreview(i);
-    // 加载 Best Score
-    var bestScore=parseInt(localStorage.getItem('bb_best_score')||'0');
-    document.getElementById('best-score').innerText=bestScore;
+    try{
+        board=saved.board;
+        score=saved.score;
+        combo=saved.combo||0;
+        currentLevel=saved.level||1;
+        levelScore=saved.levelScore||0;
+        currentPieces=saved.pieces;
+        updateScoreUI();
+        needsRedraw=true;
+        for(var i=0;i<3;i++)drawPiecePreview(i);
+        // 加载 Best Score
+        var bestScore=parseInt(localStorage.getItem('bb_best_score')||'0');
+        document.getElementById('best-score').innerText=bestScore;
+    }catch(e){
+        // Restore failed: discard corrupt save and start fresh
+        console.error('restoreGameState failed:',e);
+        localStorage.removeItem(SAVE_KEY);
+        initGame(true);
+    }
 }
 
 function showResumeDialog(saved){
