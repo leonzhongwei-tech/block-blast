@@ -530,8 +530,14 @@ function drawBoard(ghostPos){
             for(var c=0;c<piece.shape[r].length;c++){
                 if(piece.shape[r][c]){
                     var br=ghostPos.row+r,bc=ghostPos.col+c;
-                    if(br>=0&&br<GRID_SIZE&&bc>=0&&bc<GRID_SIZE)
+                    if(br>=0&&br<GRID_SIZE&&bc>=0&&bc<GRID_SIZE){
                         ctx.fillRect(bc*BLOCK_SIZE+2,br*BLOCK_SIZE+2,BLOCK_SIZE-4,BLOCK_SIZE-4);
+                        // 1px bright border stroke for enhanced visibility
+                        ctx.strokeStyle=color;ctx.lineWidth=1;
+                        ctx.globalAlpha=Math.min(breathAlpha+0.25,1);
+                        ctx.strokeRect(bc*BLOCK_SIZE+2.5,br*BLOCK_SIZE+2.5,BLOCK_SIZE-5,BLOCK_SIZE-5);
+                        ctx.globalAlpha=breathAlpha;
+                    }
                 }
             }
         }
