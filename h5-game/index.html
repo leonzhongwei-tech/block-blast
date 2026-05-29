@@ -92,6 +92,7 @@ header{width:100%;display:flex;justify-content:space-between;align-items:center;
 #loading-screen .loader-title{font-size:28px;font-weight:900;letter-spacing:6px;color:#ffaa00;text-shadow:0 0 20px rgba(255,170,0,.6),0 0 40px rgba(255,170,0,.3);margin-bottom:24px;text-transform:uppercase}
 #loading-screen .loader-spinner{width:44px;height:44px;border:4px solid rgba(255,255,255,.08);border-top:4px solid #ffaa00;border-radius:50%;animation:spin .8s linear infinite}
 #loading-screen .loader-text{margin-top:16px;font-size:11px;color:rgba(255,255,255,.35);letter-spacing:3px;text-transform:uppercase}
+@keyframes invalidShake{0%,100%{transform:var(--drag-transform,translate3d(0,0,0)) rotate(0deg)}25%{transform:var(--drag-transform,translate3d(0,0,0)) rotate(-2deg)}75%{transform:var(--drag-transform,translate3d(0,0,0)) rotate(2deg)}}
 </style>
 </head>
 <body>
@@ -257,6 +258,7 @@ var board=[],score=0,combo=0,currentPieces=[null,null,null],dragIdx=null,isDragg
 var ticking=false,lastTouchX=0,lastTouchY=0,animatingCells=[],isAnimating=false;
 var ghostPos=null; // 当前拖拽 ghost 位置 {row,col} 或 null
 var SNAP_THRESHOLD=0.4; // 降频检测阈值：距网格中心 < 40% 格宽时才做碰撞检测
+var invalidHover=false; // 拖拽方块在棋盘上方且无法放置的状态
 var needsRedraw=true; // 脏标记：是否需要重绘
 var clearAnimActive=false,clearAnimCallback=null; // 消除动画状态
 // FPS 性能监控
@@ -805,6 +807,11 @@ function updateDragUI(clientX,clientY){
     // 只有距网格中心 < SNAP_THRESHOLD 时才做碰撞检测
     if(distCol>SNAP_THRESHOLD&&distRow>SNAP_THRESHOLD){
         if(ghostPos){ghostPos=null;needsRedraw=true;}
+        // 离开棋盘区域时清除红色滤镜
+        if(invalidHover){
+            pCanvas.style.filter='';pCanvas.style.animation='';
+            invalidHover=false;
+        }
         return;
     }
 
@@ -816,8 +823,19 @@ function updateDragUI(clientX,clientY){
         if(!ghostPos||ghostPos.row!==ghostRow||ghostPos.col!==ghostCol){
             ghostPos={row:ghostRow,col:ghostCol};needsRedraw=true;
         }
+        // 可放置：移除红色滤镜
+        if(invalidHover){
+            pCanvas.style.filter='';pCanvas.style.animation='';
+            invalidHover=false;
+        }
     }else{
         if(ghostPos){ghostPos=null;needsRedraw=true;}
+        // 在棋盘上方但无法放置：添加红色滤镜 + 轻微抖动
+        if(!invalidHover){
+            pCanvas.style.filter='hue-rotate(-40deg) saturate(2) brightness(0.85)';
+            pCanvas.style.animation='invalidShake 0.15s ease-in-out';
+            invalidHover=true;
+        }
     }
 }
 
@@ -846,6 +864,8 @@ function setupDragAndDrop(){
         e.preventDefault(); // Block residual browser default on touchend
         if(!isDragging||dragIdx===null)return;isDragging=false;ticking=false;
         var pCanvas=document.getElementById('piece-'+dragIdx);pCanvas.classList.remove('dragging');
+        // 清除不可放置视觉反馈
+        if(invalidHover){pCanvas.style.filter='';pCanvas.style.animation='';invalidHover=false;}
 
         // 松手判定：只有当前存在虚影时才放置
         if(ghostPos){
