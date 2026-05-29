@@ -224,6 +224,91 @@ var LARGE_PIECES=[{shape:[[1,1],[1,1]],color:3},{shape:[[1,1,1]],color:4},{shape
 var PIECE_SHAPES=SMALL_PIECES.concat(LARGE_PIECES);
 var board=[],score=0,combo=0,currentPieces=[null,null,null],dragIdx=null,isDragging=false,startX=0,startY=0;
 var ticking=false,lastTouchX=0,lastTouchY=0,animatingCells=[],isAnimating=false;
+
+// ============================================================
+// ParticleSystem - 消除粒子飞溅特效
+// ============================================================
+var ParticleSystem=(function(){
+    var particles=[];
+    var LIFETIME=500; // 粒子存活时间 ms
+    var GRAVITY=980; // 重力加速度 px/s²
+    var PARTICLE_COUNT_MIN=5,PARTICLE_COUNT_MAX=8;
+
+    function Particle(x,y,color){
+        this.x=x;this.y=y;this.color=color;
+        // 随机初速度：向四周散射
+        var angle=Math.random()*Math.PI*2;
+        var speed=120+Math.random()*180; // 120-300 px/s
+        this.vx=Math.cos(angle)*speed;
+        this.vy=Math.sin(angle)*speed-80; // 略微向上偏移
+        this.size=2+Math.random()*4; // 2-6px
+        this.rotation=Math.random()*Math.PI*2;
+        this.rotSpeed=(Math.random()-0.5)*10;
+        this.born=performance.now();
+        this.lifetime=LIFETIME*(0.8+Math.random()*0.4); // 400-600ms
+        this.isCircle=Math.random()>0.5; // 50% 圆形 50% 矩形
+    }
+
+    function emit(cellRow,cellCol,colorVal){
+        var cx=cellCol*BLOCK_SIZE+BLOCK_SIZE/2;
+        var cy=cellRow*BLOCK_SIZE+BLOCK_SIZE/2;
+        var color=COLORS[colorVal]||'#ffffff';
+        var count=PARTICLE_COUNT_MIN+Math.floor(Math.random()*(PARTICLE_COUNT_MAX-PARTICLE_COUNT_MIN+1));
+        for(var i=0;i<count;i++){
+            particles.push(new Particle(cx,cy,color));
+        }
+    }
+
+    function update(){
+        if(particles.length===0)return false;
+        var now=performance.now();
+        var dt=1/60; // 假设 60fps
+        var alive=[];
+        for(var i=0;i<particles.length;i++){
+            var p=particles[i];
+            var age=now-p.born;
+            if(age>=p.lifetime)continue;
+            p.vy+=GRAVITY*dt;
+            p.x+=p.vx*dt;
+            p.y+=p.vy*dt;
+            p.rotation+=p.rotSpeed*dt;
+            alive.push(p);
+        }
+        particles=alive;
+        return particles.length>0;
+    }
+
+    function draw(context){
+        if(particles.length===0)return;
+        var now=performance.now();
+        for(var i=0;i<particles.length;i++){
+            var p=particles[i];
+            var age=now-p.born;
+            var progress=age/p.lifetime;
+            var alpha=1-progress; // 线性淡出
+            var scale=1-progress*0.5; // 逐渐缩小
+            context.save();
+            context.globalAlpha=alpha;
+            context.translate(p.x,p.y);
+            context.rotate(p.rotation);
+            context.fillStyle=p.color;
+            var s=p.size*scale;
+            if(p.isCircle){
+                context.beginPath();
+                context.arc(0,0,s,0,Math.PI*2);
+                context.fill();
+            }else{
+                context.fillRect(-s,-s,s*2,s*2);
+            }
+            context.restore();
+        }
+    }
+
+    function hasParticles(){return particles.length>0}
+    function clear(){particles=[]}
+
+    return{emit:emit,update:update,draw:draw,hasParticles:hasParticles,clear:clear};
+})();
 var canvas=document.getElementById('board-canvas'),ctx=canvas.getContext('2d');
 var cachedRect=null;
 
@@ -448,8 +533,21 @@ function checkAndClear(){
     var cleared=rowsToClear.length+colsToClear.length;
     if(cleared>0){
         animatingCells=[];
-        rowsToClear.forEach(function(r){for(var c=0;c<GRID_SIZE;c++)animatingCells.push({r:r,c:c,alpha:1,scale:1})});
-        colsToClear.forEach(function(c){for(var r=0;r<GRID_SIZE;r++)if(!animatingCells.some(function(cell){return cell.r===r&&cell.c===c}))animatingCells.push({r:r,c:c,alpha:1,scale:1})});
+        // 在消除前记录每个格子的颜色并触发粒子
+        var emittedSet={};
+        rowsToClear.forEach(function(r){for(var c=0;c<GRID_SIZE;c++){
+            animatingCells.push({r:r,c:c,alpha:1,scale:1});
+            var key=r+'_'+c;
+            if(!emittedSet[key]){emittedSet[key]=true;ParticleSystem.emit(r,c,board[r][c])}
+        }});
+        colsToClear.forEach(function(c){for(var r=0;r<GRID_SIZE;r++){
+            var key=r+'_'+c;
+            if(!emittedSet[key]){
+                emittedSet[key]=true;
+                animatingCells.push({r:r,c:c,alpha:1,scale:1});
+                ParticleSystem.emit(r,c,board[r][c]);
+            }
+        }});
         combo++;score+=cleared*10*combo;showComboPopup(combo);isAnimating=true;
         // 音效：消除时播放 clear，连击时播放 combo
         if(combo>1)AudioSprite.play('combo');
@@ -470,8 +568,10 @@ function playClearAnimation(onComplete){
     var step=function(){
         var anyLeft=false;
         animatingCells.forEach(function(cell){if(cell.alpha>0){cell.alpha-=.18;cell.scale-=.09;if(cell.scale<.3)cell.scale=.3;anyLeft=true}});
+        // 更新粒子系统
+        var particlesAlive=ParticleSystem.update();
         drawBoard();
-        // 优化：不使用 shadowBlur（GPU 开销大），改用纯透明度叠加模拟发光
+        // 消除闪白动画
         animatingCells.forEach(function(cell){
             if(cell.alpha>0){
                 var x=cell.c*BLOCK_SIZE,y=cell.r*BLOCK_SIZE,pad=(1-cell.scale)*BLOCK_SIZE*.5;
@@ -481,7 +581,9 @@ function playClearAnimation(onComplete){
                 ctx.fillRect(x+1+pad,y+1+pad,(BLOCK_SIZE-2)*cell.scale,(BLOCK_SIZE-2)*cell.scale);
             }
         });
-        if(anyLeft)requestAnimationFrame(step);else{animatingCells=[];onComplete()}
+        // 绘制粒子
+        ParticleSystem.draw(ctx);
+        if(anyLeft||particlesAlive)requestAnimationFrame(step);else{animatingCells=[];ParticleSystem.clear();onComplete()}
     };
     requestAnimationFrame(step);
 }
