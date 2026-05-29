@@ -790,13 +790,74 @@ function showLevelCompleteOverlay(){
     document.getElementById('lc-score').textContent=levelScore+' / '+cfg.targetScore;
     overlay.style.display='flex';
 }
+// 插屏广告冷却计时器（60秒）
+var lastInterstitialTime=0;
+var INTERSTITIAL_COOLDOWN=60000; // 60秒
+
+function tryShowInterstitial(){
+    var now=Date.now();
+    if(now-lastInterstitialTime<INTERSTITIAL_COOLDOWN){
+        console.log('[AdManager] Interstitial on cooldown, skipping. Next available in '+(Math.ceil((INTERSTITIAL_COOLDOWN-(now-lastInterstitialTime))/1000))+'s');
+        return Promise.resolve(false);
+    }
+    lastInterstitialTime=now;
+    console.log('[AdManager] Loading interstitial ad...');
+    return new Promise(function(resolve){
+        setTimeout(function(){
+            if(Math.random()<0.9){
+                console.log('[AdManager] Interstitial shown successfully');
+                resolve(true);
+            }else{
+                console.log('[AdManager] Interstitial failed to load');
+                resolve(false);
+            }
+        },1500);
+    });
+}
+
+function fireGA4AchieveLevel(level){
+    // GA4 回传：通过 gtag 和 dataLayer 双通道发送
+    console.log('[GA4] AchieveLevel event fired for level '+level);
+    if(typeof gtag==='function'){
+        gtag('event','AchieveLevel',{
+            'event_category':'game_milestone',
+            'event_label':'level_'+level,
+            'value':level
+        });
+    }
+    window.dataLayer=window.dataLayer||[];
+    window.dataLayer.push({
+        'event':'AchieveLevel',
+        'achieve_level':level,
+        'event_category':'game_milestone',
+        'user_id':getOrCreateUserId()
+    });
+}
+
 function nextLevel(){
+    var completedLevel=currentLevel;
     currentLevel++;
     levelScore=0;
     document.getElementById('level-complete-overlay').style.display='none';
     updateScoreUI();
     needsRedraw=true;
     saveGameState();
+
+    // L15 触发 GA4 AchieveLevel 回传
+    if(completedLevel===15){
+        fireGA4AchieveLevel(completedLevel);
+    }
+
+    // 新手保护：前3关不触发广告
+    if(completedLevel<=3){
+        console.log('[AdManager] Newbie protection: skipping interstitial for level '+completedLevel);
+        return;
+    }
+
+    // >3关：尝试显示插屏广告（60秒冷却）
+    tryShowInterstitial().then(function(shown){
+        if(shown)console.log('[AdManager] Interstitial completed after level '+completedLevel);
+    });
 }
 
 var hasRevived=false; // 每局只能复活一次
