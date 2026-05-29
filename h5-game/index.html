@@ -128,6 +128,7 @@ header{width:100%;display:flex;justify-content:space-between;align-items:center;
         <canvas id="piece-2" class="piece-canvas" width="100" height="100"></canvas>
     </div>
     <div id="game-title">BLOCK BLAST</div>
+    <div id="fps-monitor" style="position:fixed;top:4px;right:4px;font-size:10px;color:rgba(255,255,255,.4);font-family:monospace;z-index:999;pointer-events:none">-- FPS</div>
 </div>
 
 <div id="revive-panel">
@@ -254,6 +255,12 @@ var LARGE_PIECES=[{shape:[[1,1],[1,1]],color:3},{shape:[[1,1,1]],color:4},{shape
 var PIECE_SHAPES=SMALL_PIECES.concat(LARGE_PIECES);
 var board=[],score=0,combo=0,currentPieces=[null,null,null],dragIdx=null,isDragging=false,startX=0,startY=0;
 var ticking=false,lastTouchX=0,lastTouchY=0,animatingCells=[],isAnimating=false;
+var ghostPos=null; // 当前拖拽 ghost 位置 {row,col} 或 null
+var needsRedraw=true; // 脏标记：是否需要重绘
+var clearAnimActive=false,clearAnimCallback=null; // 消除动画状态
+// FPS 性能监控
+var fpsFrames=0,fpsLastTime=performance.now(),fpsValue=60;
+var fpsEl=null;
 
 // ============================================================
 // ParticleSystem - 消除粒子飞溅特效
@@ -349,16 +356,13 @@ function hideLoadingScreen(){
 
 function resizeBoard(){
     var vw=window.innerWidth,vh=window.innerHeight;
-    // 计算可用高度：总高度 - header(60px) - 底部备选方块容器(~120px) - 边距(40px)
     var headerH=60,piecesH=120,margins=40;
     var availH=vh-headerH-piecesH-margins;
-    var availW=vw-32; // 左右各 16px
-    // Canvas 保持 1:1 正方形，取可用宽高的较小值
+    var availW=vw-32;
     var maxBoard=Math.min(availW,availH,400);
     var size=Math.floor(maxBoard/GRID_SIZE)*GRID_SIZE;
     BLOCK_SIZE=size/GRID_SIZE;canvas.width=size;canvas.height=size;
     canvas.style.width=size+'px';canvas.style.height=size+'px';
-    // 动态调整备选方块 canvas 尺寸
     var pieceSize=Math.min(Math.floor(vw*0.9/3-16),100);
     PIECE_BLOCK_SIZE=Math.max(12,Math.floor(pieceSize/5.5));
     for(var i=0;i<3;i++){
@@ -367,7 +371,9 @@ function resizeBoard(){
         pc.style.width=pieceSize+'px';pc.style.height=pieceSize+'px';
     }
     canvasReady=true;
-    if(board.length>0){drawBoard();for(var i=0;i<3;i++)drawPiecePreview(i)}
+    // 不直接绘制，设置脏标记让 gameLoop 处理
+    needsRedraw=true;
+    if(board.length>0){for(var i=0;i<3;i++)drawPiecePreview(i)}
 }
 var canvasReady=false;
 
@@ -410,7 +416,7 @@ function initGame(forceNew){
     board=Array(GRID_SIZE).fill().map(function(){return Array(GRID_SIZE).fill(0)});
     score=0;combo=0;
     clearGameState();
-    updateScoreUI();refreshPieces();drawBoard();
+    updateScoreUI();refreshPieces();needsRedraw=true;
     // 加载 Best Score 到 UI
     var bestScore=parseInt(localStorage.getItem('bb_best_score')||'0');
     document.getElementById('best-score').innerText=bestScore;
@@ -423,7 +429,7 @@ function restoreGameState(saved){
     combo=saved.combo||0;
     currentPieces=saved.pieces;
     updateScoreUI();
-    drawBoard();
+    needsRedraw=true;
     for(var i=0;i<3;i++)drawPiecePreview(i);
     // 加载 Best Score
     var bestScore=parseInt(localStorage.getItem('bb_best_score')||'0');
@@ -595,34 +601,17 @@ function checkAndClear(){
             isAnimating=false;
             if(currentPieces.every(function(p){return p===null}))refreshPieces();
             else checkGameOver();
-            updateScoreUI();drawBoard();
+            updateScoreUI();needsRedraw=true;
             saveGameState();
         });
     }else{combo=0;updateScoreUI()}
 }
 
 function playClearAnimation(onComplete){
-    var step=function(){
-        var anyLeft=false;
-        animatingCells.forEach(function(cell){if(cell.alpha>0){cell.alpha-=.18;cell.scale-=.09;if(cell.scale<.3)cell.scale=.3;anyLeft=true}});
-        // 更新粒子系统
-        var particlesAlive=ParticleSystem.update();
-        drawBoard();
-        // 消除闪白动画
-        animatingCells.forEach(function(cell){
-            if(cell.alpha>0){
-                var x=cell.c*BLOCK_SIZE,y=cell.r*BLOCK_SIZE,pad=(1-cell.scale)*BLOCK_SIZE*.5;
-                ctx.fillStyle='rgba(255,255,255,'+cell.alpha*.8+')';
-                ctx.fillRect(x+2+pad,y+2+pad,(BLOCK_SIZE-4)*cell.scale,(BLOCK_SIZE-4)*cell.scale);
-                ctx.fillStyle='rgba(255,255,255,'+cell.alpha*.3+')';
-                ctx.fillRect(x+1+pad,y+1+pad,(BLOCK_SIZE-2)*cell.scale,(BLOCK_SIZE-2)*cell.scale);
-            }
-        });
-        // 绘制粒子
-        ParticleSystem.draw(ctx);
-        if(anyLeft||particlesAlive)requestAnimationFrame(step);else{animatingCells=[];ParticleSystem.clear();onComplete()}
-    };
-    requestAnimationFrame(step);
+    // 不再启动独立 RAF 循环，由 gameLoop 统一驱动
+    clearAnimActive=true;
+    clearAnimCallback=onComplete;
+    needsRedraw=true;
 }
 
 var hasRevived=false; // 每局只能复活一次
@@ -771,7 +760,7 @@ function reviveGame(){
                 }
             }
             isAnimating=false;
-            drawBoard();
+            needsRedraw=true;
             saveGameState();
             // 复活后重新检查是否能操作
             checkGameOver();
@@ -791,14 +780,19 @@ function getBoardCellFromClient(clientX,clientY){
 
 function updateDragUI(clientX,clientY){
     if(dragIdx===null||!currentPieces[dragIdx])return;
+    // 只更新 CSS transform 和 ghost 坐标状态，不调用 drawBoard
     var dx=clientX-startX,dy=(clientY-touchOffsetY)-startY;
     var pCanvas=document.getElementById('piece-'+dragIdx);
     pCanvas.style.transform='translate3d('+dx+'px,'+dy+'px,0) scale(1.3)';
     var boardPos=getBoardCellFromClient(clientX,clientY-touchOffsetY);
     var pRows=currentPieces[dragIdx].shape.length,pCols=currentPieces[dragIdx].shape[0].length;
     var ghostRow=boardPos.row-Math.floor(pRows/2),ghostCol=boardPos.col-Math.floor(pCols/2);
-    if(ghostRow>=0&&ghostRow+pRows<=GRID_SIZE&&ghostCol>=0&&ghostCol+pCols<=GRID_SIZE)drawBoard({row:ghostRow,col:ghostCol});
-    else drawBoard();
+    if(ghostRow>=0&&ghostRow+pRows<=GRID_SIZE&&ghostCol>=0&&ghostCol+pCols<=GRID_SIZE){
+        ghostPos={row:ghostRow,col:ghostCol};
+    }else{
+        ghostPos=null;
+    }
+    // 脏标记由 gameLoop 在 isDragging 时自动处理
 }
 
 function setupDragAndDrop(){
@@ -841,17 +835,78 @@ function setupDragAndDrop(){
             updateScoreUI();
             saveGameState();
         }
-        pCanvas.style.transform="translate3d(0,0,0) scale(1)";pCanvas.style.zIndex="1";dragIdx=null;drawBoard();
+        pCanvas.style.transform="translate3d(0,0,0) scale(1)";pCanvas.style.zIndex="1";dragIdx=null;ghostPos=null;needsRedraw=true;
     };
     window.addEventListener('mousemove',moveDrag);window.addEventListener('touchmove',moveDrag,{passive:false});
     window.addEventListener('mouseup',stopDrag);window.addEventListener('touchend',stopDrag);
 }
 
+// ============================================================
+// 主游戏循环 (Game Loop) - 统一渲染入口
+// ============================================================
+function gameLoop(){
+    // FPS 计算
+    fpsFrames++;
+    var now=performance.now();
+    if(now-fpsLastTime>=1000){
+        fpsValue=Math.round(fpsFrames*1000/(now-fpsLastTime));
+        fpsFrames=0;fpsLastTime=now;
+        if(fpsEl)fpsEl.textContent=fpsValue+' FPS';
+    }
+
+    // 消除动画步进（由 gameLoop 驱动，不再有独立 RAF）
+    if(clearAnimActive){
+        var anyLeft=false;
+        animatingCells.forEach(function(cell){
+            if(cell.alpha>0){cell.alpha-=.18;cell.scale-=.09;if(cell.scale<.3)cell.scale=.3;anyLeft=true}
+        });
+        var particlesAlive=ParticleSystem.update();
+        needsRedraw=true;
+        if(!anyLeft&&!particlesAlive){
+            clearAnimActive=false;
+            animatingCells=[];
+            ParticleSystem.clear();
+            if(clearAnimCallback){var cb=clearAnimCallback;clearAnimCallback=null;cb()}
+        }
+    }else if(ParticleSystem.hasParticles()){
+        ParticleSystem.update();
+        needsRedraw=true;
+    }
+
+    // 拖拽中持续重绘（因为 ghost 位置在变化）
+    if(isDragging)needsRedraw=true;
+
+    // 统一渲染：只在需要时绘制
+    if(needsRedraw&&canvasReady){
+        needsRedraw=false;
+        drawBoard(ghostPos);
+        // 消除闪白叠加
+        if(clearAnimActive&&animatingCells.length>0){
+            animatingCells.forEach(function(cell){
+                if(cell.alpha>0){
+                    var x=cell.c*BLOCK_SIZE,y=cell.r*BLOCK_SIZE,pad=(1-cell.scale)*BLOCK_SIZE*.5;
+                    ctx.fillStyle='rgba(255,255,255,'+cell.alpha*.8+')';
+                    ctx.fillRect(x+2+pad,y+2+pad,(BLOCK_SIZE-4)*cell.scale,(BLOCK_SIZE-4)*cell.scale);
+                    ctx.fillStyle='rgba(255,255,255,'+cell.alpha*.3+')';
+                    ctx.fillRect(x+1+pad,y+1+pad,(BLOCK_SIZE-2)*cell.scale,(BLOCK_SIZE-2)*cell.scale);
+                }
+            });
+        }
+        // 粒子叠加
+        ParticleSystem.draw(ctx);
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
 function startGame(){
     if(window._gameStarted)return;
     window._gameStarted=true;
+    fpsEl=document.getElementById('fps-monitor');
     initGame();resizeBoard();setupDragAndDrop();
-    console.log('Game initialized');
+    // 启动主循环
+    requestAnimationFrame(gameLoop);
+    console.log('Game initialized - RAF game loop started');
     if('serviceWorker' in navigator){
         navigator.serviceWorker.register('/sw.js').then(function(reg){
             console.log('SW registered');
