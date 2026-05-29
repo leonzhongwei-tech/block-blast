@@ -122,6 +122,16 @@ header{width:100%;display:flex;justify-content:space-between;align-items:center;
             <div id="combo" class="score-val">0</div>
         </div>
     </header>
+    <!-- Level Progress Bar -->
+    <div style="width:100%;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span id="level-label" style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#00ccff;text-shadow:0 0 8px rgba(0,204,255,0.5);font-family:Orbitron,monospace,system-ui">LEVEL 1</span>
+            <span id="level-text" style="font-size:11px;color:rgba(255,255,255,0.5);font-family:Orbitron,monospace,system-ui">0 / 150</span>
+        </div>
+        <div style="width:100%;height:6px;border-radius:9999px;overflow:hidden;background:rgba(255,255,255,0.08);border:1px solid rgba(100,100,140,0.15)">
+            <div id="level-progress" style="height:100%;width:0%;border-radius:9999px;background:linear-gradient(90deg,#00ccff,#00ff88);box-shadow:0 0 8px rgba(0,204,255,0.4);transition:width 0.3s cubic-bezier(0.23,1,0.32,1)"></div>
+        </div>
+    </div>
     <canvas id="board-canvas" width="360" height="360"></canvas>
     <div id="pieces-container">
         <canvas id="piece-0" class="piece-canvas" width="100" height="100"></canvas>
@@ -254,13 +264,49 @@ var GLOW_COLORS={1:"rgba(0,255,136,.6)",2:"rgba(0,204,255,.6)",3:"rgba(255,0,204
 var SMALL_PIECES=[{shape:[[1]],color:1},{shape:[[1,1]],color:2},{shape:[[1],[1]],color:2},{shape:[[1,1],[1,0]],color:4},{shape:[[1,1],[0,1]],color:1}];
 var LARGE_PIECES=[{shape:[[1,1],[1,1]],color:3},{shape:[[1,1,1]],color:4},{shape:[[1],[1],[1]],color:4},{shape:[[1,1,1],[0,1,0]],color:5},{shape:[[1,0],[1,0],[1,1]],color:1},{shape:[[1,1,1,1]],color:3},{shape:[[1,1,1],[1,0,0]],color:2},{shape:[[1,1,1],[0,0,1]],color:5},{shape:[[1,1,1,1,1]],color:1},{shape:[[1],[1],[1],[1],[1]],color:3}];
 var PIECE_SHAPES=SMALL_PIECES.concat(LARGE_PIECES);
+
+// ============================================================
+// 关卡系统 (Level System)
+// ============================================================
+var LEVEL_CONFIG=[
+    {level:1,targetScore:150,difficultyProfile:{easy:1.0,medium:0.0,hard:0.0}},
+    {level:2,targetScore:300,difficultyProfile:{easy:0.9,medium:0.1,hard:0.0}},
+    {level:3,targetScore:500,difficultyProfile:{easy:0.8,medium:0.2,hard:0.0}},
+    {level:4,targetScore:600,difficultyProfile:{easy:0.7,medium:0.3,hard:0.0}},
+    {level:5,targetScore:800,difficultyProfile:{easy:0.6,medium:0.4,hard:0.0}}
+];
+// 方块难度分类
+var EASY_PIECES=PIECE_SHAPES.filter(function(p){return p.shape.flat().filter(Boolean).length<=2});
+var MEDIUM_PIECES=PIECE_SHAPES.filter(function(p){var n=p.shape.flat().filter(Boolean).length;return n>=3&&n<=4});
+var HARD_PIECES=PIECE_SHAPES.filter(function(p){return p.shape.flat().filter(Boolean).length>=5});
+
+function getLevelConfig(lv){
+    if(lv<=LEVEL_CONFIG.length)return LEVEL_CONFIG[lv-1];
+    var base=LEVEL_CONFIG[LEVEL_CONFIG.length-1];
+    var extra=lv-LEVEL_CONFIG.length;
+    var hardR=Math.min(0.5,extra*0.1);
+    var medR=0.4;
+    var easyR=Math.max(0.1,1-medR-hardR);
+    return{level:lv,targetScore:base.targetScore+extra*250,difficultyProfile:{easy:easyR,medium:medR,hard:hardR}};
+}
+function pickPieceByDifficulty(profile){
+    var rand=Math.random(),pool;
+    if(rand<profile.easy)pool=EASY_PIECES;
+    else if(rand<profile.easy+profile.medium)pool=MEDIUM_PIECES;
+    else pool=HARD_PIECES;
+    if(pool.length===0)pool=PIECE_SHAPES;
+    return JSON.parse(JSON.stringify(pool[Math.floor(Math.random()*pool.length)]));
+}
+
 var board=[],score=0,combo=0,currentPieces=[null,null,null],dragIdx=null,isDragging=false,startX=0,startY=0;
 var ticking=false,lastTouchX=0,lastTouchY=0,animatingCells=[],isAnimating=false;
-var ghostPos=null; // 当前拖拽 ghost 位置 {row,col} 或 null
-var SNAP_THRESHOLD=0.4; // 降频检测阈值：距网格中心 < 40% 格宽时才做碰撞检测
-var invalidHover=false; // 拖拽方块在棋盘上方且无法放置的状态
-var needsRedraw=true; // 脏标记：是否需要重绘
-var clearAnimActive=false,clearAnimCallback=null; // 消除动画状态
+var ghostPos=null;
+var SNAP_THRESHOLD=0.4;
+var invalidHover=false;
+var needsRedraw=true;
+var clearAnimActive=false,clearAnimCallback=null;
+// 关卡状态
+var currentLevel=1,levelScore=0;
 // FPS 性能监控
 var fpsFrames=0,fpsLastTime=performance.now(),fpsValue=60;
 var fpsEl=null;
@@ -436,7 +482,7 @@ var canvasReady=false;
 var SAVE_KEY='bb_game_state';
 function saveGameState(){
     try{
-        var state={board:board,score:score,combo:combo,pieces:currentPieces,timestamp:Date.now()};
+        var state={board:board,score:score,combo:combo,level:currentLevel,levelScore:levelScore,pieces:currentPieces,timestamp:Date.now()};
         localStorage.setItem(SAVE_KEY,JSON.stringify(state));
     }catch(e){}
 }
@@ -469,8 +515,11 @@ function initGame(forceNew){
     }
     // 全新开局
     board=Array(GRID_SIZE).fill().map(function(){return Array(GRID_SIZE).fill(0)});
-    score=0;combo=0;
+    score=0;combo=0;currentLevel=1;levelScore=0;
     clearGameState();
+    // 隐藏关卡完成弹窗
+    var lcOverlay=document.getElementById('level-complete-overlay');
+    if(lcOverlay)lcOverlay.style.display='none';
     updateScoreUI();refreshPieces();needsRedraw=true;
     // 加载 Best Score 到 UI
     var bestScore=parseInt(localStorage.getItem('bb_best_score')||'0');
@@ -482,6 +531,8 @@ function restoreGameState(saved){
     board=saved.board;
     score=saved.score;
     combo=saved.combo||0;
+    currentLevel=saved.level||1;
+    levelScore=saved.levelScore||0;
     currentPieces=saved.pieces;
     updateScoreUI();
     needsRedraw=true;
@@ -525,6 +576,14 @@ function getOrCreateUserId(){
 function updateScoreUI(){
     document.getElementById('score').innerText=score;
     document.getElementById('combo').innerText=combo;
+    // 更新关卡进度条
+    var cfg=getLevelConfig(currentLevel);
+    var lvLabel=document.getElementById('level-label');
+    var lvProgress=document.getElementById('level-progress');
+    var lvText=document.getElementById('level-text');
+    if(lvLabel)lvLabel.textContent='LEVEL '+currentLevel;
+    if(lvText)lvText.textContent=levelScore+' / '+cfg.targetScore;
+    if(lvProgress)lvProgress.style.width=Math.min(100,levelScore/cfg.targetScore*100)+'%';
     // GTM dataLayer: CPE Conversion at 1000 points
     if(score>=1000&&!cpeConversionFired){
         cpeConversionFired=true;
@@ -540,14 +599,10 @@ function updateScoreUI(){
 }
 
 function refreshPieces(){
-    var emptyCells=0;
-    for(var r=0;r<GRID_SIZE;r++)for(var c=0;c<GRID_SIZE;c++)if(board[r][c]===0)emptyCells++;
+    var config=getLevelConfig(currentLevel);
     for(var i=0;i<3;i++){
-        var pool=PIECE_SHAPES;
-        if(emptyCells<20&&Math.random()<.7)pool=SMALL_PIECES;
-        else if(emptyCells>45&&Math.random()<.5)pool=LARGE_PIECES;
-        var t=pool[Math.floor(Math.random()*pool.length)];
-        currentPieces[i]=JSON.parse(JSON.stringify(t));drawPiecePreview(i);
+        currentPieces[i]=pickPieceByDifficulty(config.difficultyProfile);
+        drawPiecePreview(i);
     }
     checkGameOver();
 }
@@ -654,7 +709,7 @@ function checkAndClear(){
                 ParticleSystem.emit(r,c,board[r][c]);
             }
         }});
-        combo++;score+=cleared*10*combo;showComboPopup(combo);isAnimating=true;
+        combo++;var clearBonus=cleared*10*combo;score+=clearBonus;levelScore+=clearBonus;showComboPopup(combo);isAnimating=true;
         // 音效：消除时播放 clear，连击时播放 combo
         if(combo>1)AudioSprite.play('combo');
         else AudioSprite.play('clear');
@@ -675,6 +730,45 @@ function playClearAnimation(onComplete){
     clearAnimActive=true;
     clearAnimCallback=onComplete;
     needsRedraw=true;
+}
+
+// ============================================================
+// 关卡通关检测
+// ============================================================
+function checkLevelComplete(){
+    var cfg=getLevelConfig(currentLevel);
+    if(levelScore>=cfg.targetScore){
+        showLevelCompleteOverlay();
+    }
+}
+function showLevelCompleteOverlay(){
+    var overlay=document.getElementById('level-complete-overlay');
+    if(!overlay){
+        overlay=document.createElement('div');
+        overlay.id='level-complete-overlay';
+        overlay.style.cssText='position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px);animation:fadeIn 300ms ease-out;';
+        overlay.innerHTML='<div style="text-align:center;animation:comboPopIn 600ms ease-out">'+
+            '<div id="lc-level" style="font-size:48px;font-weight:900;color:#00ff88;text-shadow:0 0 30px rgba(0,255,136,0.6),0 0 60px rgba(0,255,136,0.3);font-family:Orbitron,monospace,system-ui;margin-bottom:16px"></div>'+
+            '<h1 style="font-size:24px;font-weight:700;color:#ffaa00;text-shadow:0 0 20px rgba(255,170,0,0.5);font-family:Orbitron,monospace,system-ui;margin-bottom:8px">关卡挑战成功</h1>'+
+            '<p style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:4px">当前关卡得分</p>'+
+            '<p id="lc-score" style="font-size:28px;font-weight:700;color:#00ccff;text-shadow:0 0 15px rgba(0,204,255,0.5);font-family:Orbitron,monospace,system-ui;margin-bottom:24px"></p>'+
+            '<button id="lc-next-btn" style="padding:12px 32px;font-size:18px;font-weight:700;border-radius:9999px;border:none;background:linear-gradient(135deg,#00ccff,#00ff88);color:#000;box-shadow:0 4px 20px rgba(0,204,255,0.4),0 0 40px rgba(0,255,136,0.2);cursor:pointer;transition:transform 0.15s">NEXT LEVEL →</button>'+
+            '</div>';
+        document.body.appendChild(overlay);
+        document.getElementById('lc-next-btn').addEventListener('click',function(){nextLevel()});
+    }
+    var cfg=getLevelConfig(currentLevel);
+    document.getElementById('lc-level').textContent='LEVEL '+currentLevel;
+    document.getElementById('lc-score').textContent=levelScore+' / '+cfg.targetScore;
+    overlay.style.display='flex';
+}
+function nextLevel(){
+    currentLevel++;
+    levelScore=0;
+    document.getElementById('level-complete-overlay').style.display='none';
+    updateScoreUI();
+    needsRedraw=true;
+    saveGameState();
 }
 
 var hasRevived=false; // 每局只能复活一次
@@ -925,7 +1019,7 @@ function setupDragAndDrop(){
             var placedCells=[];
             for(var r=0;r<pRows;r++)for(var c=0;c<pCols;c++)if(piece.shape[r][c]){board[ghostPos.row+r][ghostPos.col+c]=piece.color;placedCells.push({row:ghostPos.row+r,col:ghostPos.col+c});}
             PlacementFlash.emit(placedCells);
-            score+=placedCells.length;currentPieces[dragIdx]=null;
+            score+=placedCells.length;levelScore+=placedCells.length;currentPieces[dragIdx]=null;
             pCanvas.getContext('2d').clearRect(0,0,pCanvas.width,pCanvas.height);
             pCanvas.style.transition='none';
             pCanvas.style.transform='translate3d(0,0,0) scale(1)';
@@ -936,6 +1030,7 @@ function setupDragAndDrop(){
             if(currentPieces.every(function(p){return p===null}))refreshPieces();
             else if(!isAnimating)checkGameOver();
             updateScoreUI();
+            checkLevelComplete();
             saveGameState();
         }else{
             // 无法放置：缓动弹回动画
