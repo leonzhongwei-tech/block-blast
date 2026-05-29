@@ -349,6 +349,58 @@ var ParticleSystem=(function(){
 
     return{emit:emit,update:update,draw:draw,hasParticles:hasParticles,clear:clear};
 })();
+
+// ============================================================
+// PlacementFlash - 放置确认白色闪光扩散效果
+// ============================================================
+var PlacementFlash=(function(){
+    var cells=[];
+    var DURATION=200; // 200ms 渐隐
+
+    function emit(placedCells){
+        var now=performance.now();
+        for(var i=0;i<placedCells.length;i++){
+            cells.push({row:placedCells[i].row,col:placedCells[i].col,born:now});
+        }
+    }
+
+    function update(){
+        if(cells.length===0)return false;
+        var now=performance.now();
+        var alive=[];
+        for(var i=0;i<cells.length;i++){
+            if(now-cells[i].born<DURATION)alive.push(cells[i]);
+        }
+        cells=alive;
+        return cells.length>0;
+    }
+
+    function draw(context){
+        if(cells.length===0)return;
+        var now=performance.now();
+        for(var i=0;i<cells.length;i++){
+            var c=cells[i];
+            var progress=(now-c.born)/DURATION;
+            var alpha=0.7*(1-progress);
+            var expand=progress*3;
+            context.globalAlpha=alpha;
+            context.fillStyle='#ffffff';
+            context.fillRect(
+                c.col*BLOCK_SIZE+2-expand,
+                c.row*BLOCK_SIZE+2-expand,
+                BLOCK_SIZE-4+expand*2,
+                BLOCK_SIZE-4+expand*2
+            );
+        }
+        context.globalAlpha=1;
+    }
+
+    function hasFlash(){return cells.length>0}
+    function clear(){cells=[]}
+
+    return{emit:emit,update:update,draw:draw,hasFlash:hasFlash,clear:clear};
+})();
+
 var canvas=document.getElementById('board-canvas'),ctx=canvas.getContext('2d');
 var cachedRect=null;
 
@@ -870,8 +922,10 @@ function setupDragAndDrop(){
         // 松手判定：只有当前存在虚影时才放置
         if(ghostPos){
             var piece=currentPieces[dragIdx],pRows=piece.shape.length,pCols=piece.shape[0].length;
-            for(var r=0;r<pRows;r++)for(var c=0;c<pCols;c++)if(piece.shape[r][c])board[ghostPos.row+r][ghostPos.col+c]=piece.color;
-            score+=piece.shape.flat().filter(Boolean).length;currentPieces[dragIdx]=null;
+            var placedCells=[];
+            for(var r=0;r<pRows;r++)for(var c=0;c<pCols;c++)if(piece.shape[r][c]){board[ghostPos.row+r][ghostPos.col+c]=piece.color;placedCells.push({row:ghostPos.row+r,col:ghostPos.col+c});}
+            PlacementFlash.emit(placedCells);
+            score+=placedCells.length;currentPieces[dragIdx]=null;
             pCanvas.getContext('2d').clearRect(0,0,pCanvas.width,pCanvas.height);
             pCanvas.style.transition='none';
             pCanvas.style.transform='translate3d(0,0,0) scale(1)';
@@ -929,6 +983,10 @@ function gameLoop(){
         needsRedraw=true;
     }
 
+    // PlacementFlash 更新
+    var flashAlive=PlacementFlash.update();
+    if(flashAlive)needsRedraw=true;
+
     // 拖拽中持续重绘（因为 ghost 位置在变化）
     if(isDragging)needsRedraw=true;
 
@@ -936,6 +994,8 @@ function gameLoop(){
     if(needsRedraw&&canvasReady){
         needsRedraw=false;
         drawBoard(ghostPos);
+        // 放置确认闪光叠加
+        if(flashAlive)PlacementFlash.draw(ctx);
         // 消除闪白叠加
         if(clearAnimActive&&animatingCells.length>0){
             animatingCells.forEach(function(cell){
