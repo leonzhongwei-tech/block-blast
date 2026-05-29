@@ -113,7 +113,7 @@ header{width:100%;display:flex;justify-content:space-between;align-items:center;
     <h1>GAME OVER</h1>
     <div class="sub-text">Final Score</div>
     <div id="final-score">0</div>
-    <button id="restart-btn" onclick="initGame()">PLAY AGAIN</button>
+    <button id="restart-btn" onclick="initGame(true)">PLAY AGAIN</button>
 </div>
 
 <script>
@@ -242,13 +242,81 @@ function resizeBoard(){
 }
 var canvasReady=false;
 
-function initGame(){
-    board=Array(GRID_SIZE).fill().map(function(){return Array(GRID_SIZE).fill(0)});
-    score=0;combo=0;animatingCells=[];isAnimating=false;
+// === localStorage 自动保存/恢复 ===
+var SAVE_KEY='bb_game_state';
+function saveGameState(){
+    try{
+        var state={board:board,score:score,combo:combo,pieces:currentPieces,timestamp:Date.now()};
+        localStorage.setItem(SAVE_KEY,JSON.stringify(state));
+    }catch(e){}
+}
+function clearGameState(){
+    localStorage.removeItem(SAVE_KEY);
+}
+function loadGameState(){
+    try{
+        var raw=localStorage.getItem(SAVE_KEY);
+        if(!raw)return null;
+        var state=JSON.parse(raw);
+        if(state&&state.board&&state.board.length===GRID_SIZE&&typeof state.score==='number')return state;
+    }catch(e){}
+    return null;
+}
+
+function initGame(forceNew){
     document.getElementById('game-over-mask').classList.remove('show');
     document.getElementById('game-over-mask').style.display='none';
+    animatingCells=[];isAnimating=false;
+    // 检查是否有未完成的对局
+    if(!forceNew){
+        var saved=loadGameState();
+        if(saved){
+            showResumeDialog(saved);
+            hideLoadingScreen();
+            return;
+        }
+    }
+    // 全新开局
+    board=Array(GRID_SIZE).fill().map(function(){return Array(GRID_SIZE).fill(0)});
+    score=0;combo=0;
+    clearGameState();
     updateScoreUI();refreshPieces();drawBoard();
     hideLoadingScreen();
+}
+
+function restoreGameState(saved){
+    board=saved.board;
+    score=saved.score;
+    combo=saved.combo||0;
+    currentPieces=saved.pieces;
+    updateScoreUI();
+    drawBoard();
+    for(var i=0;i<3;i++)drawPiecePreview(i);
+}
+
+function showResumeDialog(saved){
+    var overlay=document.createElement('div');
+    overlay.id='resume-dialog';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px)';
+    var box=document.createElement('div');
+    box.style.cssText='background:linear-gradient(135deg,#1a1a2e,#16213e);border:1px solid rgba(0,204,255,.3);border-radius:16px;padding:32px;text-align:center;max-width:320px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.5)';
+    box.innerHTML='<div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:12px">\u53d1\u73b0\u672a\u5b8c\u6210\u7684\u5bf9\u5c40</div>'+
+        '<div style="font-size:14px;color:rgba(255,255,255,.6);margin-bottom:24px">\u4e0a\u6b21\u5f97\u5206\uff1a'+saved.score+'</div>'+
+        '<div style="display:flex;gap:12px;justify-content:center">'+
+        '<button id="resume-yes" style="flex:1;padding:12px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ccff,#00ff88);color:#000;font-weight:700;font-size:15px;cursor:pointer">\u7ee7\u7eed\u5bf9\u5c40</button>'+
+        '<button id="resume-no" style="flex:1;padding:12px 20px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-weight:500;font-size:15px;cursor:pointer">\u65b0\u5f00\u4e00\u5c40</button>'+
+        '</div>';
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    document.getElementById('resume-yes').onclick=function(){
+        overlay.remove();
+        restoreGameState(saved);
+    };
+    document.getElementById('resume-no').onclick=function(){
+        overlay.remove();
+        clearGameState();
+        initGame(true);
+    };
 }
 
 var cpeConversionFired=false;
@@ -379,6 +447,7 @@ function checkAndClear(){
             if(currentPieces.every(function(p){return p===null}))refreshPieces();
             else checkGameOver();
             updateScoreUI();drawBoard();
+            saveGameState();
         });
     }else{combo=0;updateScoreUI()}
 }
@@ -415,6 +484,8 @@ function checkGameOver(){
         var mask=document.getElementById('game-over-mask');mask.style.display='flex';mask.classList.add('show');
         // 音效：Game Over
         AudioSprite.play('gameover');
+        // 游戏结束时清除保存的状态
+        clearGameState();
     }
 }
 
@@ -475,6 +546,7 @@ function setupDragAndDrop(){
             if(currentPieces.every(function(p){return p===null}))refreshPieces();
             else if(!isAnimating)checkGameOver();
             updateScoreUI();
+            saveGameState();
         }
         pCanvas.style.transform="translate3d(0,0,0) scale(1)";pCanvas.style.zIndex="1";dragIdx=null;drawBoard();
     };
