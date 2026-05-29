@@ -269,11 +269,27 @@ var PIECE_SHAPES=SMALL_PIECES.concat(LARGE_PIECES);
 // 关卡系统 (Level System)
 // ============================================================
 var LEVEL_CONFIG=[
-    {level:1,targetScore:150,difficultyProfile:{easy:1.0,medium:0.0,hard:0.0}},
-    {level:2,targetScore:300,difficultyProfile:{easy:0.9,medium:0.1,hard:0.0}},
-    {level:3,targetScore:500,difficultyProfile:{easy:0.8,medium:0.2,hard:0.0}},
-    {level:4,targetScore:600,difficultyProfile:{easy:0.7,medium:0.3,hard:0.0}},
-    {level:5,targetScore:800,difficultyProfile:{easy:0.6,medium:0.4,hard:0.0}}
+    // L1-L3: 新手引导，"秒过"体验（10-20秒）
+    {level:1,targetScore:30,difficultyProfile:{easy:1.0,medium:0.0,hard:0.0}},
+    {level:2,targetScore:80,difficultyProfile:{easy:1.0,medium:0.0,hard:0.0}},
+    {level:3,targetScore:150,difficultyProfile:{easy:0.8,medium:0.2,hard:0.0}},
+    // L4-L5: 过渡关卡（25-35秒）
+    {level:4,targetScore:250,difficultyProfile:{easy:0.6,medium:0.4,hard:0.0}},
+    {level:5,targetScore:350,difficultyProfile:{easy:0.5,medium:0.4,hard:0.1}},
+    // L6-L9: 正常节奏（30-45秒）
+    {level:6,targetScore:450,difficultyProfile:{easy:0.4,medium:0.4,hard:0.2}},
+    {level:7,targetScore:550,difficultyProfile:{easy:0.35,medium:0.4,hard:0.25}},
+    {level:8,targetScore:650,difficultyProfile:{easy:0.35,medium:0.4,hard:0.25}},
+    {level:9,targetScore:750,difficultyProfile:{easy:0.3,medium:0.4,hard:0.3}},
+    // L10: 小卡点
+    {level:10,targetScore:800,difficultyProfile:{easy:0.3,medium:0.4,hard:0.3}},
+    // L11-L14: 挑战关卡
+    {level:11,targetScore:900,difficultyProfile:{easy:0.25,medium:0.4,hard:0.35}},
+    {level:12,targetScore:1000,difficultyProfile:{easy:0.25,medium:0.4,hard:0.35}},
+    {level:13,targetScore:1050,difficultyProfile:{easy:0.2,medium:0.4,hard:0.4}},
+    {level:14,targetScore:1100,difficultyProfile:{easy:0.2,medium:0.4,hard:0.4}},
+    // L15: 关键回传点
+    {level:15,targetScore:1200,difficultyProfile:{easy:0.2,medium:0.4,hard:0.4}}
 ];
 // 方块难度分类（手动指定）
 // EASY_SHAPES: 1x1, 1x2, 2x1, 1x3, 3x1, 2x2 正方形
@@ -306,12 +322,13 @@ var HARD_SHAPES=[
 
 function getLevelConfig(lv){
     if(lv<=LEVEL_CONFIG.length)return LEVEL_CONFIG[lv-1];
+    // 超过预设关卡：动态生成（每关目标分 +150，hard 比例逐渐增加至上限 0.5）
     var base=LEVEL_CONFIG[LEVEL_CONFIG.length-1];
     var extra=lv-LEVEL_CONFIG.length;
-    var hardR=Math.min(0.5,extra*0.1);
+    var hardR=Math.min(0.5,0.4+extra*0.02);
     var medR=0.4;
     var easyR=Math.max(0.1,1-medR-hardR);
-    return{level:lv,targetScore:base.targetScore+extra*250,difficultyProfile:{easy:easyR,medium:medR,hard:hardR}};
+    return{level:lv,targetScore:base.targetScore+extra*150,difficultyProfile:{easy:easyR,medium:medR,hard:hardR}};
 }
 /**
  * generateBlockByLevel - 根据当前关卡的 difficultyProfile 概率加权生成方块
@@ -756,6 +773,8 @@ function checkAndClear(){
             }
         }});
         combo++;var clearBonus=cleared*10*combo;score+=clearBonus;levelScore+=clearBonus;showComboPopup(combo);isAnimating=true;
+        // 消除得分后立即检测通关（不等待动画完成）
+        checkLevelComplete();
         // 音效：消除时播放 clear，连击时播放 combo
         if(combo>1)AudioSprite.play('combo');
         else AudioSprite.play('clear');
