@@ -256,6 +256,7 @@ var PIECE_SHAPES=SMALL_PIECES.concat(LARGE_PIECES);
 var board=[],score=0,combo=0,currentPieces=[null,null,null],dragIdx=null,isDragging=false,startX=0,startY=0;
 var ticking=false,lastTouchX=0,lastTouchY=0,animatingCells=[],isAnimating=false;
 var ghostPos=null; // 当前拖拽 ghost 位置 {row,col} 或 null
+var SNAP_THRESHOLD=0.4; // 降频检测阈值：距网格中心 < 40% 格宽时才做碰撞检测
 var needsRedraw=true; // 脏标记：是否需要重绘
 var clearAnimActive=false,clearAnimCallback=null; // 消除动画状态
 // FPS 性能监控
@@ -780,19 +781,36 @@ function getBoardCellFromClient(clientX,clientY){
 
 function updateDragUI(clientX,clientY){
     if(dragIdx===null||!currentPieces[dragIdx])return;
-    // 只更新 CSS transform 和 ghost 坐标状态，不调用 drawBoard
+    // 只更新 CSS transform（实体跟手）
     var dx=clientX-startX,dy=(clientY-touchOffsetY)-startY;
     var pCanvas=document.getElementById('piece-'+dragIdx);
     pCanvas.style.transform='translate3d('+dx+'px,'+dy+'px,0) scale(1.3)';
-    var boardPos=getBoardCellFromClient(clientX,clientY-touchOffsetY);
-    var pRows=currentPieces[dragIdx].shape.length,pCols=currentPieces[dragIdx].shape[0].length;
-    var ghostRow=boardPos.row-Math.floor(pRows/2),ghostCol=boardPos.col-Math.floor(pCols/2);
-    if(ghostRow>=0&&ghostRow+pRows<=GRID_SIZE&&ghostCol>=0&&ghostCol+pCols<=GRID_SIZE){
-        ghostPos={row:ghostRow,col:ghostCol};
-    }else{
-        ghostPos=null;
+
+    // 降频检测：计算手指距最近网格中心的偏移比例
+    var rect=cachedRect||canvas.getBoundingClientRect();
+    var px=clientX-rect.left,py=(clientY-touchOffsetY)-rect.top;
+    var cellW=rect.width/GRID_SIZE,cellH=rect.height/GRID_SIZE;
+    var colF=px/cellW,rowF=py/cellH;
+    var distCol=Math.abs(colF-(Math.floor(colF)+0.5));
+    var distRow=Math.abs(rowF-(Math.floor(rowF)+0.5));
+
+    // 只有距网格中心 < SNAP_THRESHOLD 时才做碰撞检测
+    if(distCol>SNAP_THRESHOLD&&distRow>SNAP_THRESHOLD){
+        if(ghostPos){ghostPos=null;needsRedraw=true;}
+        return;
     }
-    // 脏标记由 gameLoop 在 isDragging 时自动处理
+
+    var col=Math.floor(colF),row=Math.floor(rowF);
+    var piece=currentPieces[dragIdx];
+    var pRows=piece.shape.length,pCols=piece.shape[0].length;
+    var ghostRow=row-Math.floor(pRows/2),ghostCol=col-Math.floor(pCols/2);
+    if(canPlace(piece,ghostRow,ghostCol)){
+        if(!ghostPos||ghostPos.row!==ghostRow||ghostPos.col!==ghostCol){
+            ghostPos={row:ghostRow,col:ghostCol};needsRedraw=true;
+        }
+    }else{
+        if(ghostPos){ghostPos=null;needsRedraw=true;}
+    }
 }
 
 function setupDragAndDrop(){
@@ -820,14 +838,16 @@ function setupDragAndDrop(){
         e.preventDefault(); // Block residual browser default on touchend
         if(!isDragging||dragIdx===null)return;isDragging=false;ticking=false;
         var pCanvas=document.getElementById('piece-'+dragIdx);pCanvas.classList.remove('dragging');
-        var touch=e.changedTouches?e.changedTouches[0]:e;
-        var boardPos=getBoardCellFromClient(touch.clientX,touch.clientY-touchOffsetY);
-        var piece=currentPieces[dragIdx],pRows=piece.shape.length,pCols=piece.shape[0].length;
-        var targetRow=boardPos.row-Math.floor(pRows/2),targetCol=boardPos.col-Math.floor(pCols/2);
-        if(canPlace(piece,targetRow,targetCol)){
-            for(var r=0;r<pRows;r++)for(var c=0;c<pCols;c++)if(piece.shape[r][c])board[targetRow+r][targetCol+c]=piece.color;
+
+        // 松手判定：只有当前存在虚影时才放置
+        if(ghostPos){
+            var piece=currentPieces[dragIdx],pRows=piece.shape.length,pCols=piece.shape[0].length;
+            for(var r=0;r<pRows;r++)for(var c=0;c<pCols;c++)if(piece.shape[r][c])board[ghostPos.row+r][ghostPos.col+c]=piece.color;
             score+=piece.shape.flat().filter(Boolean).length;currentPieces[dragIdx]=null;
             pCanvas.getContext('2d').clearRect(0,0,pCanvas.width,pCanvas.height);
+            pCanvas.style.transition='none';
+            pCanvas.style.transform='translate3d(0,0,0) scale(1)';
+            pCanvas.style.zIndex='1';
             // 音效：放置方块
             AudioSprite.play('place');
             checkAndClear();
@@ -835,8 +855,15 @@ function setupDragAndDrop(){
             else if(!isAnimating)checkGameOver();
             updateScoreUI();
             saveGameState();
+        }else{
+            // 无法放置：缓动弹回动画
+            pCanvas.style.transition='transform 0.3s cubic-bezier(0.23, 1, 0.32, 1)';
+            pCanvas.style.transform='translate3d(0,0,0) scale(1)';
+            pCanvas.style.zIndex='1';
+            // 动画结束后清理 transition
+            setTimeout(function(){pCanvas.style.transition='';},300);
         }
-        pCanvas.style.transform="translate3d(0,0,0) scale(1)";pCanvas.style.zIndex="1";dragIdx=null;ghostPos=null;needsRedraw=true;
+        dragIdx=null;ghostPos=null;needsRedraw=true;
     };
     window.addEventListener('mousemove',moveDrag);window.addEventListener('touchmove',moveDrag,{passive:false});
     window.addEventListener('mouseup',stopDrag);window.addEventListener('touchend',stopDrag,{passive:false});
