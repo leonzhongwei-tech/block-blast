@@ -275,10 +275,34 @@ var LEVEL_CONFIG=[
     {level:4,targetScore:600,difficultyProfile:{easy:0.7,medium:0.3,hard:0.0}},
     {level:5,targetScore:800,difficultyProfile:{easy:0.6,medium:0.4,hard:0.0}}
 ];
-// 方块难度分类
-var EASY_PIECES=PIECE_SHAPES.filter(function(p){return p.shape.flat().filter(Boolean).length<=2});
-var MEDIUM_PIECES=PIECE_SHAPES.filter(function(p){var n=p.shape.flat().filter(Boolean).length;return n>=3&&n<=4});
-var HARD_PIECES=PIECE_SHAPES.filter(function(p){return p.shape.flat().filter(Boolean).length>=5});
+// 方块难度分类（手动指定）
+// EASY_SHAPES: 1x1, 1x2, 2x1, 1x3, 3x1, 2x2 正方形
+var EASY_SHAPES=[
+    {shape:[[1]],color:1},
+    {shape:[[1,1]],color:2},
+    {shape:[[1],[1]],color:2},
+    {shape:[[1,1,1]],color:4},
+    {shape:[[1],[1],[1]],color:4},
+    {shape:[[1,1],[1,1]],color:3}
+];
+// MEDIUM_SHAPES: L型, T型, 1x4 长条
+var MEDIUM_SHAPES=[
+    {shape:[[1,0],[1,0],[1,1]],color:1},
+    {shape:[[1,1,1],[1,0,0]],color:2},
+    {shape:[[1,1,1],[0,0,1]],color:5},
+    {shape:[[1,1,1],[0,1,0]],color:5},
+    {shape:[[1,1,1,1]],color:3},
+    {shape:[[1],[1],[1],[1]],color:3}
+];
+// HARD_SHAPES: Z型/拐角型, 5格大方块
+var HARD_SHAPES=[
+    {shape:[[1,1],[1,0]],color:4},
+    {shape:[[0,1],[1,1]],color:1},
+    {shape:[[1,1,0],[0,1,1]],color:4},
+    {shape:[[0,1,1],[1,1,0]],color:2},
+    {shape:[[1,1,1,1,1]],color:1},
+    {shape:[[1],[1],[1],[1],[1]],color:3}
+];
 
 function getLevelConfig(lv){
     if(lv<=LEVEL_CONFIG.length)return LEVEL_CONFIG[lv-1];
@@ -289,12 +313,17 @@ function getLevelConfig(lv){
     var easyR=Math.max(0.1,1-medR-hardR);
     return{level:lv,targetScore:base.targetScore+extra*250,difficultyProfile:{easy:easyR,medium:medR,hard:hardR}};
 }
-function pickPieceByDifficulty(profile){
+/**
+ * generateBlockByLevel - 根据当前关卡的 difficultyProfile 概率加权生成方块
+ * 1. 先按概率随机决定本次生成的难度等级（easy/medium/hard）
+ * 2. 再从该等级的形状数组中随机抽选一个具体形状
+ */
+function generateBlockByLevel(level){
+    var config=getLevelConfig(level);
     var rand=Math.random(),pool;
-    if(rand<profile.easy)pool=EASY_PIECES;
-    else if(rand<profile.easy+profile.medium)pool=MEDIUM_PIECES;
-    else pool=HARD_PIECES;
-    if(pool.length===0)pool=PIECE_SHAPES;
+    if(rand<config.difficultyProfile.easy)pool=EASY_SHAPES;
+    else if(rand<config.difficultyProfile.easy+config.difficultyProfile.medium)pool=MEDIUM_SHAPES;
+    else pool=HARD_SHAPES;
     return JSON.parse(JSON.stringify(pool[Math.floor(Math.random()*pool.length)]));
 }
 
@@ -599,9 +628,8 @@ function updateScoreUI(){
 }
 
 function refreshPieces(){
-    var config=getLevelConfig(currentLevel);
     for(var i=0;i<3;i++){
-        currentPieces[i]=pickPieceByDifficulty(config.difficultyProfile);
+        currentPieces[i]=generateBlockByLevel(currentLevel);
         drawPiecePreview(i);
     }
     checkGameOver();
