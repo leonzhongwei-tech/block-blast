@@ -1103,54 +1103,68 @@ function skipRevive(){
 }
 
 function reviveGame(){
-    // 策略：清除棋盘上数量最多的那一种颜色的方块
+    // Helper: check if any current piece can be placed
+    function hasValidMove(){
+        for(var i=0;i<3;i++){
+            if(!currentPieces[i])continue;
+            for(var r=0;r<GRID_SIZE;r++){
+                for(var c=0;c<GRID_SIZE;c++){
+                    if(canPlace(currentPieces[i],r,c))return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Collect all colors sorted by count descending
     var colorCount={};
     for(var r=0;r<GRID_SIZE;r++){
         for(var c=0;c<GRID_SIZE;c++){
             var val=board[r][c];
-            if(val!==0){
-                colorCount[val]=(colorCount[val]||0)+1;
-            }
+            if(val!==0)colorCount[val]=(colorCount[val]||0)+1;
         }
     }
-    // 找到数量最多的颜色
-    var maxColor=0,maxCount=0;
-    for(var color in colorCount){
-        if(colorCount[color]>maxCount){
-            maxCount=colorCount[color];
-            maxColor=parseInt(color);
-        }
-    }
-    // 收集要清除的格子并触发粒子效果
-    if(maxColor>0){
-        animatingCells=[];
+    var sortedColors=Object.keys(colorCount).sort(function(a,b){return colorCount[b]-colorCount[a]}).map(Number);
+
+    // Clear colors one by one until valid move exists (max 3)
+    var colorsCleared=0;
+    for(var ci=0;ci<sortedColors.length&&colorsCleared<3;ci++){
+        var color=sortedColors[ci];
         for(var r=0;r<GRID_SIZE;r++){
             for(var c=0;c<GRID_SIZE;c++){
-                if(board[r][c]===maxColor){
-                    animatingCells.push({r:r,c:c,alpha:1,scale:1});
-                    ParticleSystem.emit(r,c,maxColor);
+                if(board[r][c]===color){
+                    ParticleSystem.emit(r,c,color);
+                    board[r][c]=0;
                 }
             }
         }
-        AudioSprite.play('clear');
-        isAnimating=true;
-        playClearAnimation(function(){
-            // 清除该颜色的所有方块
-            for(var r=0;r<GRID_SIZE;r++){
-                for(var c=0;c<GRID_SIZE;c++){
-                    if(board[r][c]===maxColor)board[r][c]=0;
+        colorsCleared++;
+        if(hasValidMove())break;
+    }
+
+    // Fallback: if still no valid move, clear 2 middle rows
+    if(!hasValidMove()){
+        var midRow=Math.floor(GRID_SIZE/2);
+        for(var row=midRow;row<=midRow+1;row++){
+            for(var c=0;c<GRID_SIZE;c++){
+                if(board[row][c]!==0){
+                    ParticleSystem.emit(row,c,board[row][c]);
+                    board[row][c]=0;
                 }
             }
-            isAnimating=false;
-            needsRedraw=true;
-            saveGameState();
-            // 复活后重新检查是否能操作
-            checkGameOver();
-        });
-    }else{
-        // 如果棋盘已空（不应该发生），直接结束
-        triggerGameOver();
+        }
     }
+
+    // Final fallback: if STILL no valid move, refresh pieces
+    if(!hasValidMove()){
+        refreshPieces();
+    }
+
+    AudioSprite.play('clear');
+    needsRedraw=true;
+    saveGameState();
+    // Redraw piece previews
+    for(var i=0;i<3;i++)drawPiecePreview(i);
 }
 
 var touchOffsetY = 50; // 触控偏移：方块显示在手指上方的像素数
