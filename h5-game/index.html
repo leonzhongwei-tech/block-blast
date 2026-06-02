@@ -152,8 +152,8 @@ header{width:100%;display:flex;justify-content:space-between;align-items:center;
 <div id="revive-panel">
     <div class="revive-icon">❤️</div>
     <div class="revive-title">SECOND CHANCE!</div>
-    <div class="revive-subtitle">观看广告复活，清除棋盘上数量最多的颜色方块，继续游戏！</div>
-    <button id="revive-btn" onclick="handleRevive()">🎬 WATCH AD TO REVIVE</button>
+    <div class="revive-subtitle">完成问卷即可复活，清除棋盘上数量最多的颜色方块，继续游戏！</div>
+    <button id="revive-btn" onclick="handleRevive()">📝 完成问卷复活</button>
     <div id="revive-loading"></div>
     <button id="revive-skip-btn" onclick="skipRevive()">NO THANKS</button>
 </div>
@@ -1195,29 +1195,44 @@ function hideRevivePanel(){
 // 模拟广告 SDK 异步函数
 function showRewardedAd(){
     return new Promise(function(resolve,reject){
-        // 模拟广告加载和播放过程（2-3秒）
-        console.log('[AdSDK] Loading rewarded ad...');
+        console.log('[Revive] Opening survey for revive...');
+        // 打开问卷链接
+        var surveyWin=window.open(SURVEY_LINK_PLACEHOLDER,'_blank');
+        if(!surveyWin){
+            // 弹窗被拦截，直接复活（容错处理）
+            console.log('[Revive] Popup blocked, granting revive as fallback');
+            resolve({rewarded:true});
+            return;
+        }
+        // 存储回调引用，等待 postMessage 或超时
+        window._reviveCallback={resolve:resolve,reject:reject};
+        // 60秒超时自动复活
         setTimeout(function(){
-            console.log('[AdSDK] Ad loaded, playing...');
-            setTimeout(function(){
-                // 90% 概率成功，10% 概率失败（模拟网络问题）
-                if(Math.random()<0.9){
-                    console.log('[AdSDK] Ad completed successfully');
-                    resolve({rewarded:true});
-                }else{
-                    console.log('[AdSDK] Ad failed to load');
-                    reject(new Error('Ad failed'));
-                }
-            },1500);
-        },1000);
+            if(window._reviveCallback){
+                console.log('[Revive] Timeout reached, granting revive');
+                window._reviveCallback.resolve({rewarded:true});
+                window._reviveCallback=null;
+            }
+        },60000);
     });
 }
+
+// 监听问卷完成的 postMessage 来触发复活
+window.addEventListener('message',function(event){
+    if(event.data==='survey_success'||(event.data&&event.data.type==='survey_completed')){
+        if(window._reviveCallback){
+            console.log('[Revive] Survey completed, granting revive');
+            window._reviveCallback.resolve({rewarded:true});
+            window._reviveCallback=null;
+        }
+    }
+});
 
 function handleRevive(){
     var btn=document.getElementById('revive-btn');
     var loading=document.getElementById('revive-loading');
     btn.disabled=true;
-    btn.textContent='加载中...';
+    btn.textContent='等待问卷完成...';
     loading.style.display='block';
 
     showRewardedAd().then(function(result){
@@ -1230,9 +1245,9 @@ function handleRevive(){
     }).catch(function(err){
         loading.style.display='none';
         btn.disabled=false;
-        btn.textContent='🎬 WATCH AD TO REVIVE';
-        // 广告加载失败，提示重试
-        alert('广告加载失败，请重试');
+        btn.textContent='📝 完成问卷复活';
+        // 问卷加载失败，提示重试
+        alert('问卷加载失败，请重试');
     });
 }
 
