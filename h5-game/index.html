@@ -992,9 +992,9 @@ var lastInterstitialTime=0;
 var INTERSTITIAL_COOLDOWN=60000; // 60秒
 
 function tryShowInterstitial(){
-    // 已去广告用户直接跳过
-    if(isAdsRemoved){
-        console.log('[AdManager] Ads removed, skipping interstitial');
+    // 前置判断：从 localStorage 实时读取去广告状态
+    if(localStorage.getItem('is_ads_removed')==='true'){
+        console.log('[AdManager] Ads removed (localStorage), skipping interstitial');
         return Promise.resolve(false);
     }
     var now=Date.now();
