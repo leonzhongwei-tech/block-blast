@@ -93,6 +93,9 @@ header{width:100%;display:flex;justify-content:space-between;align-items:center;
 #loading-screen .loader-spinner{width:44px;height:44px;border:4px solid rgba(255,255,255,.08);border-top:4px solid #ffaa00;border-radius:50%;animation:spin .8s linear infinite}
 #loading-screen .loader-text{margin-top:16px;font-size:11px;color:rgba(255,255,255,.35);letter-spacing:3px;text-transform:uppercase}
 @keyframes invalidShake{0%,100%{transform:var(--drag-transform,translate3d(0,0,0)) rotate(0deg)}25%{transform:var(--drag-transform,translate3d(0,0,0)) rotate(-2deg)}75%{transform:var(--drag-transform,translate3d(0,0,0)) rotate(2deg)}}
+@keyframes adFreePopIn{0%{opacity:0;transform:scale(0.6) rotate(-3deg)}50%{opacity:1;transform:scale(1.05) rotate(1deg)}100%{opacity:1;transform:scale(1) rotate(0deg)}}
+@keyframes crownBounce{0%,100%{transform:translateY(0) scale(1)}25%{transform:translateY(-6px) scale(1.1)}50%{transform:translateY(0) scale(1)}75%{transform:translateY(-3px) scale(1.05)}}
+@keyframes sparkle{0%,100%{opacity:0.4;transform:scale(0.8)}50%{opacity:1;transform:scale(1.4)}}
 </style>
 </head>
 <body>
@@ -173,13 +176,58 @@ header{width:100%;display:flex;justify-content:space-between;align-items:center;
     </div>
 </div>
 
+<!-- Ad-Free Success Celebration Modal -->
+<div id="ad-free-success-modal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:99999;padding:24px" onclick="hideAdFreeSuccess()">
+    <div style="width:100%;max-width:360px;border-radius:24px;padding:32px;text-align:center;background:linear-gradient(160deg,rgba(0,40,60,0.98),rgba(0,15,30,0.98));border:2px solid rgba(0,255,136,0.5);box-shadow:0 0 80px rgba(0,255,136,0.3),0 0 160px rgba(0,204,255,0.15),0 30px 80px rgba(0,0,0,0.7);animation:adFreePopIn 600ms cubic-bezier(0.23,1,0.32,1) forwards">
+        <div style="font-size:60px;margin-bottom:12px;filter:drop-shadow(0 0 20px rgba(255,215,0,0.8));animation:crownBounce 1s ease-in-out infinite">\uD83D\uDC51</div>
+        <h2 style="font-size:24px;font-weight:900;margin-bottom:8px;background:linear-gradient(135deg,#ffd700,#ffaa00,#ffd700);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-family:Orbitron,monospace,system-ui">\u606D\u559C\uFF01</h2>
+        <p style="font-size:18px;font-weight:700;color:#00ff88;text-shadow:0 0 10px rgba(0,255,136,0.5);margin-bottom:8px">\u5C0A\u8D35\u7684\u65E0\u5E7F\u544A\u7279\u6743\u5DF2\u6C38\u4E45\u6FC0\u6D3B\uFF01</p>
+        <p style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:24px">\u4ECE\u73B0\u5728\u8D77\uFF0C\u60A8\u5C06\u4E0D\u518D\u770B\u5230\u4EFB\u4F55\u63D2\u5C4F\u5E7F\u544A</p>
+        <div style="display:flex;justify-content:center;gap:8px;margin-bottom:16px" id="sparkle-dots"></div>
+        <button onclick="hideAdFreeSuccess()" style="padding:12px 32px;font-size:16px;font-weight:700;border-radius:12px;background:linear-gradient(135deg,#ffd700,#ffaa00);color:#000;border:none;box-shadow:0 4px 20px rgba(255,215,0,0.4);cursor:pointer;font-family:Orbitron,monospace,system-ui;transition:transform 150ms">\u592A\u68D2\u4E86\uFF01</button>
+    </div>
+</div>
+
 <script>
 // ============================================================
 // 问卷去广告链接 (Survey Ad-Free Link)
 // ============================================================
 var SURVEY_LINK_PLACEHOLDER = 'https://example.com/survey?uid=PLACEHOLDER';
+var isAdsRemoved = localStorage.getItem('is_ads_removed') === 'true';
+
+function activateAdFree(){
+    localStorage.setItem('is_ads_removed','true');
+    isAdsRemoved=true;
+    hideSurveyModal();
+    showAdFreeSuccess();
+    // 隐藏主界面和 Game Over 的问卷按钮
+    var mainBtn=document.getElementById('survey-btn-main');
+    if(mainBtn)mainBtn.style.display='none';
+    console.log('[AdFree] Ad-free privilege activated permanently');
+}
+
+function showAdFreeSuccess(){
+    var modal=document.getElementById('ad-free-success-modal');
+    modal.style.display='flex';
+    modal.style.animation='fadeIn 300ms ease-out';
+    // 生成闪光粒子
+    var dotsContainer=document.getElementById('sparkle-dots');
+    dotsContainer.innerHTML='';
+    for(var i=0;i<5;i++){
+        var dot=document.createElement('div');
+        dot.style.cssText='width:8px;height:8px;border-radius:50%;background:'+(i%2===0?'#ffd700':'#00ff88')+';animation:sparkle 1.2s ease-in-out '+(i*0.15)+'s infinite;box-shadow:0 0 10px '+(i%2===0?'rgba(255,215,0,0.8)':'rgba(0,255,136,0.8)');
+        dotsContainer.appendChild(dot);
+    }
+    // 4秒后自动关闭
+    setTimeout(hideAdFreeSuccess,4000);
+}
+
+function hideAdFreeSuccess(){
+    document.getElementById('ad-free-success-modal').style.display='none';
+}
 
 function showSurveyModal(){
+    if(isAdsRemoved)return; // 已去广告用户不再显示
     var modal=document.getElementById('survey-modal');
     modal.style.display='flex';
     modal.style.animation='fadeIn 200ms ease-out';
@@ -191,6 +239,30 @@ function startSurvey(){
     window.open(SURVEY_LINK_PLACEHOLDER,'_blank');
     hideSurveyModal();
 }
+
+// === URL 参数检测 + postMessage 监听 ===
+(function(){
+    // 方案 A: URL 参数检测
+    var params=new URLSearchParams(window.location.search);
+    if(params.get('survey_status')==='completed'){
+        // 延迟执行确保 DOM 已加载
+        if(document.readyState==='loading'){
+            document.addEventListener('DOMContentLoaded',function(){activateAdFree();});
+        }else{
+            activateAdFree();
+        }
+        // 清除 URL 参数避免重复触发
+        var url=new URL(window.location.href);
+        url.searchParams.delete('survey_status');
+        window.history.replaceState({},'',url.toString());
+    }
+    // 方案 B: postMessage 监听
+    window.addEventListener('message',function(event){
+        if(event.data==='survey_success'||( event.data&&event.data.type==='survey_completed')){
+            activateAdFree();
+        }
+    });
+})();
 
 // ============================================================
 // Audio Sprite System - 单文件加载，时间戳播放，极低延迟
@@ -920,6 +992,11 @@ var lastInterstitialTime=0;
 var INTERSTITIAL_COOLDOWN=60000; // 60秒
 
 function tryShowInterstitial(){
+    // 已去广告用户直接跳过
+    if(isAdsRemoved){
+        console.log('[AdManager] Ads removed, skipping interstitial');
+        return Promise.resolve(false);
+    }
     var now=Date.now();
     if(now-lastInterstitialTime<INTERSTITIAL_COOLDOWN){
         console.log('[AdManager] Interstitial on cooldown, skipping. Next available in '+(Math.ceil((INTERSTITIAL_COOLDOWN-(now-lastInterstitialTime))/1000))+'s');
@@ -1398,6 +1475,11 @@ function startGame(){
     if(window._gameStarted)return;
     window._gameStarted=true;
     fpsEl=document.getElementById('fps-monitor');
+    // 已去广告用户隐藏问卷按钮
+    if(isAdsRemoved){
+        var mainBtn=document.getElementById('survey-btn-main');
+        if(mainBtn)mainBtn.style.display='none';
+    }
     initGame();resizeBoard();setupDragAndDrop();
     // 启动主循环
     requestAnimationFrame(gameLoop);
