@@ -138,7 +138,7 @@ header{width:100%;display:flex;justify-content:space-between;align-items:center;
         </div>
     </div>
     <!-- Ad-Free Survey Button (Main UI) -->
-    <button id="survey-btn-main" onclick="showSurveyModal()" style="align-self:flex-end;padding:4px 10px;font-size:11px;font-weight:500;border-radius:9999px;background:rgba(0,204,255,0.08);color:#00ccff;border:1px solid rgba(0,204,255,0.3);box-shadow:0 0 10px rgba(0,204,255,0.1);cursor:pointer;margin-bottom:4px;transition:all 150ms">🎁 免费去广告</button>
+    <button id="survey-btn-main" onclick="showSurveyModal()" ontouchend="event.stopPropagation();showSurveyModal()" style="align-self:flex-end;padding:4px 10px;font-size:11px;font-weight:500;border-radius:9999px;background:rgba(0,204,255,0.08);color:#00ccff;border:1px solid rgba(0,204,255,0.3);box-shadow:0 0 10px rgba(0,204,255,0.1);cursor:pointer;margin-bottom:4px;transition:all 150ms">🎁 免费去广告</button>
     <canvas id="board-canvas" width="360" height="360"></canvas>
     <div id="pieces-container">
         <canvas id="piece-0" class="piece-canvas" width="100" height="100"></canvas>
@@ -240,8 +240,15 @@ function hideSurveyModal(){
     document.getElementById('survey-modal').style.display='none';
 }
 function startSurvey(){
-    window.open(SURVEY_LINK_PLACEHOLDER,'_blank');
     hideSurveyModal();
+    // iOS Safari 对 window.open 限制严格，改用 a 标签模拟点击打开新窗口
+    var a=document.createElement('a');
+    a.href=SURVEY_LINK_PLACEHOLDER;
+    a.target='_blank';
+    a.rel='noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 }
 
 // === URL 参数检测 + postMessage 监听 ===
@@ -785,15 +792,21 @@ function showResumeDialog(saved){
         '</div>';
     overlay.appendChild(box);
     document.body.appendChild(overlay);
-    document.getElementById('resume-yes').onclick=function(){
+    var resumeYes=document.getElementById('resume-yes');
+    var resumeNo=document.getElementById('resume-no');
+    var resumeHandler=function(){
         overlay.remove();
         restoreGameState(saved);
     };
-    document.getElementById('resume-no').onclick=function(){
+    var newGameHandler=function(){
         overlay.remove();
         clearGameState();
         initGame(true);
     };
+    resumeYes.onclick=resumeHandler;
+    resumeYes.addEventListener('touchend',function(e){e.stopPropagation();resumeHandler();},{passive:false});
+    resumeNo.onclick=newGameHandler;
+    resumeNo.addEventListener('touchend',function(e){e.stopPropagation();newGameHandler();},{passive:false});
 }
 
 var cpeConversionFired=false;
@@ -986,7 +999,9 @@ function showLevelCompleteOverlay(){
             '<button id="lc-next-btn" style="padding:12px 32px;font-size:18px;font-weight:700;border-radius:9999px;border:none;background:linear-gradient(135deg,#00ccff,#00ff88);color:#000;box-shadow:0 4px 20px rgba(0,204,255,0.4),0 0 40px rgba(0,255,136,0.2);cursor:pointer;transition:transform 0.15s">NEXT LEVEL →</button>'+
             '</div>';
         document.body.appendChild(overlay);
-        document.getElementById('lc-next-btn').addEventListener('click',function(){nextLevel()});
+        var lcNextBtn=document.getElementById('lc-next-btn');
+        lcNextBtn.addEventListener('click',function(){nextLevel()});
+        lcNextBtn.addEventListener('touchend',function(e){e.stopPropagation();nextLevel();},{passive:false});
     }
     var cfg=getLevelConfig(currentLevel);
     document.getElementById('lc-level').textContent='LEVEL '+currentLevel;
@@ -1196,14 +1211,14 @@ function hideRevivePanel(){
 function showRewardedAd(){
     return new Promise(function(resolve,reject){
         console.log('[Revive] Opening survey for revive...');
-        // 打开问卷链接
-        var surveyWin=window.open(SURVEY_LINK_PLACEHOLDER,'_blank');
-        if(!surveyWin){
-            // 弹窗被拦截，直接复活（容错处理）
-            console.log('[Revive] Popup blocked, granting revive as fallback');
-            resolve({rewarded:true});
-            return;
-        }
+        // iOS Safari 对 window.open 限制严格，改用 a 标签模拟点击
+        var a=document.createElement('a');
+        a.href=SURVEY_LINK_PLACEHOLDER;
+        a.target='_blank';
+        a.rel='noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
         // 存储回调引用，等待 postMessage 或超时
         window._reviveCallback={resolve:resolve,reject:reject};
         // 60秒超时自动复活
@@ -1394,14 +1409,15 @@ function setupDragAndDrop(){
         })(i);
     }
     var moveDrag=function(e){
-        e.preventDefault();
         if(!isDragging||dragIdx===null)return;
+        e.preventDefault(); // 仅在拖拽中阻止默认行为
         var touch=e.touches?e.touches[0]:e;lastTouchX=touch.clientX;lastTouchY=touch.clientY;
         if(!ticking){window.requestAnimationFrame(function(){updateDragUI(lastTouchX,lastTouchY);ticking=false});ticking=true}
     };
     var stopDrag=function(e){
-        e.preventDefault(); // Block residual browser default on touchend
-        if(!isDragging||dragIdx===null)return;isDragging=false;ticking=false;
+        if(!isDragging||dragIdx===null)return; // 非拖拽状态不阻止默认行为（iOS按钮点击依赖touchend默认行为）
+        e.preventDefault(); // 仅在拖拽中阻止默认行为
+        isDragging=false;ticking=false;
         var pCanvas=document.getElementById('piece-'+dragIdx);pCanvas.classList.remove('dragging');
         // 清除不可放置视觉反馈
         if(invalidHover){pCanvas.style.filter='';pCanvas.style.animation='';invalidHover=false;}
