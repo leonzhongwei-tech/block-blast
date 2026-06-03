@@ -1280,10 +1280,18 @@ function showMgidWidget(containerId){
     var el=document.getElementById(containerId);
     if(el){
         el.style.display='block';
-        // 触发 MGID 重新加载
+        // iOS Safari: SDK 不会重新渲染已处理过的 widget 节点
+        // 销毁旧内容并重建全新 DOM 节点后再触发 load
+        el.innerHTML='';
+        var newWidget=document.createElement('div');
+        newWidget.setAttribute('data-type','_mgwidget');
+        newWidget.setAttribute('data-widget-id','2026349');
+        el.appendChild(newWidget);
+        // 触发 MGID SDK 重新扫描并渲染新节点
         try{
             window._mgq=window._mgq||[];
             window._mgq.push(['_mgc.load']);
+            console.log('[MGID] Widget DOM rebuilt: '+containerId);
         }catch(e){}
     }
 }
