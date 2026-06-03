@@ -195,6 +195,54 @@ header{width:100%;display:flex;justify-content:space-between;align-items:center;
 
 <script>
 // ============================================================
+// Affise Click ID 捕获与存储
+// ============================================================
+(function(){
+    try{
+        var params=new URLSearchParams(window.location.search);
+        var clickid=params.get('clickid')||params.get('click_id')||'';
+        if(clickid){
+            localStorage.setItem('affise_click_id',clickid);
+            console.log('[Affise] clickid captured and stored:',clickid);
+        }
+    }catch(e){
+        console.warn('[Affise] clickid capture error:',e);
+    }
+})();
+
+// ============================================================
+// 全局数据上报函数 (Server-Side GTM)
+// ============================================================
+var _level35Fired=false;
+function reportServerEvent(eventName,extraParams){
+    try{
+        var clickId=localStorage.getItem('affise_click_id')||'';
+        var userId=localStorage.getItem('bb_user_id')||'';
+        var payload={
+            'event':eventName,
+            'click_id':clickId,
+            'user_id':userId,
+            'timestamp':new Date().toISOString()
+        };
+        if(extraParams&&typeof extraParams==='object'){
+            for(var k in extraParams){
+                if(extraParams.hasOwnProperty(k))payload[k]=extraParams[k];
+            }
+        }
+        // 推送到 dataLayer 供 GTM Server-Side 拦截
+        window.dataLayer=window.dataLayer||[];
+        window.dataLayer.push(payload);
+        // 同时通过 gtag 发送（如果可用）
+        if(typeof gtag==='function'){
+            gtag('event',eventName,payload);
+        }
+        console.log('[ReportServer] Event sent:',eventName,payload);
+    }catch(e){
+        console.warn('[ReportServer] Error sending event:',eventName,e);
+    }
+}
+
+// ============================================================
 // 问卷去广告链接 (Survey Ad-Free Link)
 // ============================================================
 var SURVEY_LINK_PLACEHOLDER = 'https://meviusads.g2afse.com/click?pid=1&offer_id=1755';
@@ -1095,6 +1143,11 @@ function checkLevelComplete(){
     }
 }
 function showLevelCompleteOverlay(){
+    // level_achieved_35 埋点：仅首次到达第35关时触发
+    if(currentLevel===35&&!_level35Fired){
+        _level35Fired=true;
+        reportServerEvent('level_achieved_35',{score:score,level:35});
+    }
     var overlay=document.getElementById('level-complete-overlay');
     if(!overlay){
         overlay=document.createElement('div');
