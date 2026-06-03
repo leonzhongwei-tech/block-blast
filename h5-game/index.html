@@ -139,7 +139,7 @@ header{width:100%;display:flex;justify-content:space-between;align-items:center;
         </div>
     </div>
     <!-- Ad-Free Survey Button (Main UI) -->
-    <button id="survey-btn-main" onclick="showSurveyModal()" style="align-self:flex-end;padding:4px 10px;font-size:11px;font-weight:500;border-radius:9999px;background:rgba(0,204,255,0.08);color:#00ccff;border:1px solid rgba(0,204,255,0.3);box-shadow:0 0 10px rgba(0,204,255,0.1);cursor:pointer;margin-bottom:4px;transition:all 150ms;-webkit-tap-highlight-color:transparent">🎁 免费去广告</button>
+    <button id="survey-btn-main" onclick="showSurveyModal()" style="align-self:flex-end;padding:4px 10px;font-size:11px;font-weight:500;border-radius:9999px;background:rgba(0,204,255,0.08);color:#00ccff;border:1px solid rgba(0,204,255,0.3);box-shadow:0 0 10px rgba(0,204,255,0.1);cursor:pointer;margin-bottom:4px;transition:all 150ms;-webkit-tap-highlight-color:transparent">🎁 Remove Ads Free</button>
     <canvas id="board-canvas" width="360" height="360"></canvas>
     <div id="pieces-container">
         <canvas id="piece-0" class="piece-canvas" width="100" height="100"></canvas>
@@ -153,8 +153,8 @@ header{width:100%;display:flex;justify-content:space-between;align-items:center;
 <div id="revive-panel">
     <div class="revive-icon">❤️</div>
     <div class="revive-title">SECOND CHANCE!</div>
-    <div class="revive-subtitle">完成问卷即可复活，清除棋盘上数量最多的颜色方块，继续游戏！</div>
-    <button id="revive-btn" onclick="handleRevive()">📝 完成问卷复活</button>
+    <div class="revive-subtitle" id="i18n-revive-subtitle">Complete a survey to revive! Clear the most common color blocks and continue playing!</div>
+    <button id="revive-btn" onclick="handleRevive()">📝 Complete Survey to Revive</button>
     <div id="revive-loading"></div>
     <button id="revive-skip-btn" onclick="skipRevive()">NO THANKS</button>
 </div>
@@ -167,7 +167,7 @@ header{width:100%;display:flex;justify-content:space-between;align-items:center;
     <!-- MGID Ad Widget - Game Over -->
     <div id="mgid-gameover" style="width:100%;max-width:320px;margin:12px auto;border-radius:8px;overflow:hidden;min-height:100px;display:none"><div data-type="_mgwidget" data-widget-id="2026349"></div></div>
     <button id="restart-btn" onclick="initGame(true)">PLAY AGAIN</button>
-    <button onclick="showSurveyModal()" style="margin-top:16px;padding:8px 24px;font-size:13px;font-weight:500;border-radius:9999px;background:rgba(0,204,255,0.1);color:#00ccff;border:1px solid rgba(0,204,255,0.4);box-shadow:0 0 15px rgba(0,204,255,0.15);cursor:pointer;transition:all 150ms">🎁 免费永久去广告</button>
+    <button onclick="showSurveyModal()" style="margin-top:16px;padding:8px 24px;font-size:13px;font-weight:500;border-radius:9999px;background:rgba(0,204,255,0.1);color:#00ccff;border:1px solid rgba(0,204,255,0.4);box-shadow:0 0 15px rgba(0,204,255,0.15);cursor:pointer;transition:all 150ms" id="i18n-gameover-survey-btn">🎁 Remove Ads Forever</button>
 </div>
 
 <!-- Survey Ad-Free Modal -->
@@ -209,6 +209,66 @@ header{width:100%;display:flex;justify-content:space-between;align-items:center;
         console.warn('[Affise] clickid capture error:',e);
     }
 })();
+
+// ============================================================
+// i18n 国际化系统 (IP-based language detection)
+// ============================================================
+var I18N_LANGS={
+  en:{free_remove_ads:'\ud83c\udf81 Remove Ads Free',revive_subtitle:'Complete a survey to revive! Clear the most common color blocks and continue playing!',revive_btn:'\ud83d\udcdd Complete Survey to Revive',free_remove_ads_forever:'\ud83c\udf81 Remove Ads Forever',level_clear_title:'LEVEL COMPLETE',level_clear_subtitle:'Lines Cleared',lines_unit:'lines',resume_title:'Unfinished Game Found',resume_score:'Last Score',resume_continue:'Continue',resume_new:'New Game',revive_confirm_title:'Survey Completed?',revive_confirm_desc:'Complete the survey to revive and continue playing',revive_confirm_yes:'\u2705 Done, Revive Now',revive_confirm_no:'Not Yet',survey_title:'Remove Ads Forever',survey_desc:'Complete a 2-minute survey to permanently remove all interstitial ads!',survey_start:'Start Survey',survey_decline:'No Thanks',adfree_congrats:'Congratulations!',adfree_activated:'Your ad-free privilege is now permanently activated!',adfree_desc:'From now on, you will never see interstitial ads again',adfree_ok:'Awesome!',redirecting_survey:'Redirecting to survey...'},
+  pt:{free_remove_ads:'\ud83c\udf81 Remover An\u00fancios',revive_subtitle:'Complete uma pesquisa para reviver! Limpe os blocos da cor mais comum e continue jogando!',revive_btn:'\ud83d\udcdd Completar Pesquisa para Reviver',free_remove_ads_forever:'\ud83c\udf81 Remover An\u00fancios para Sempre',level_clear_title:'FASE COMPLETA',level_clear_subtitle:'Linhas Eliminadas',lines_unit:'linhas',resume_title:'Jogo Inacabado Encontrado',resume_score:'\u00daltima Pontua\u00e7\u00e3o',resume_continue:'Continuar',resume_new:'Novo Jogo',revive_confirm_title:'Pesquisa Conclu\u00edda?',revive_confirm_desc:'Complete a pesquisa para reviver e continuar jogando',revive_confirm_yes:'\u2705 Pronto, Reviver Agora',revive_confirm_no:'Ainda N\u00e3o',survey_title:'Remover An\u00fancios para Sempre',survey_desc:'Complete uma pesquisa de 2 minutos para remover permanentemente todos os an\u00fancios!',survey_start:'Iniciar Pesquisa',survey_decline:'N\u00e3o, Obrigado',adfree_congrats:'Parab\u00e9ns!',adfree_activated:'Seu privil\u00e9gio sem an\u00fancios foi ativado permanentemente!',adfree_desc:'A partir de agora, voc\u00ea nunca mais ver\u00e1 an\u00fancios intersticiais',adfree_ok:'Incr\u00edvel!',redirecting_survey:'Redirecionando para pesquisa...'},
+  th:{free_remove_ads:'\ud83c\udf81 \u0e25\u0e1a\u0e42\u0e06\u0e29\u0e13\u0e32\u0e1f\u0e23\u0e35',revive_subtitle:'\u0e17\u0e33\u0e41\u0e1a\u0e1a\u0e2a\u0e33\u0e23\u0e27\u0e08\u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e1f\u0e37\u0e49\u0e19\u0e04\u0e37\u0e19\u0e0a\u0e35\u0e1e! \u0e25\u0e49\u0e32\u0e07\u0e1a\u0e25\u0e47\u0e2d\u0e01\u0e2a\u0e35\u0e17\u0e35\u0e48\u0e21\u0e35\u0e21\u0e32\u0e01\u0e17\u0e35\u0e48\u0e2a\u0e38\u0e14\u0e41\u0e25\u0e49\u0e27\u0e40\u0e25\u0e48\u0e19\u0e15\u0e48\u0e2d!',revive_btn:'\ud83d\udcdd \u0e17\u0e33\u0e41\u0e1a\u0e1a\u0e2a\u0e33\u0e23\u0e27\u0e08\u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e1f\u0e37\u0e49\u0e19\u0e04\u0e37\u0e19\u0e0a\u0e35\u0e1e',free_remove_ads_forever:'\ud83c\udf81 \u0e25\u0e1a\u0e42\u0e06\u0e29\u0e13\u0e32\u0e15\u0e25\u0e2d\u0e14\u0e01\u0e32\u0e25',level_clear_title:'\u0e1c\u0e48\u0e32\u0e19\u0e14\u0e48\u0e32\u0e19\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08',level_clear_subtitle:'\u0e41\u0e16\u0e27\u0e17\u0e35\u0e48\u0e40\u0e04\u0e25\u0e35\u0e22\u0e23\u0e4c',lines_unit:'\u0e41\u0e16\u0e27',resume_title:'\u0e1e\u0e1a\u0e40\u0e01\u0e21\u0e17\u0e35\u0e48\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e40\u0e2a\u0e23\u0e47\u0e08',resume_score:'\u0e04\u0e30\u0e41\u0e19\u0e19\u0e25\u0e48\u0e32\u0e2a\u0e38\u0e14',resume_continue:'\u0e40\u0e25\u0e48\u0e19\u0e15\u0e48\u0e2d',resume_new:'\u0e40\u0e01\u0e21\u0e43\u0e2b\u0e21\u0e48',revive_confirm_title:'\u0e17\u0e33\u0e41\u0e1a\u0e1a\u0e2a\u0e33\u0e23\u0e27\u0e08\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e41\u0e25\u0e49\u0e27?',revive_confirm_desc:'\u0e17\u0e33\u0e41\u0e1a\u0e1a\u0e2a\u0e33\u0e23\u0e27\u0e08\u0e43\u0e2b\u0e49\u0e40\u0e2a\u0e23\u0e47\u0e08\u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e1f\u0e37\u0e49\u0e19\u0e04\u0e37\u0e19\u0e0a\u0e35\u0e1e\u0e41\u0e25\u0e30\u0e40\u0e25\u0e48\u0e19\u0e15\u0e48\u0e2d',revive_confirm_yes:'\u2705 \u0e40\u0e2a\u0e23\u0e47\u0e08\u0e41\u0e25\u0e49\u0e27 \u0e1f\u0e37\u0e49\u0e19\u0e04\u0e37\u0e19\u0e0a\u0e35\u0e1e\u0e40\u0e25\u0e22',revive_confirm_no:'\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e40\u0e2a\u0e23\u0e47\u0e08',survey_title:'\u0e25\u0e1a\u0e42\u0e06\u0e29\u0e13\u0e32\u0e15\u0e25\u0e2d\u0e14\u0e01\u0e32\u0e25',survey_desc:'\u0e17\u0e33\u0e41\u0e1a\u0e1a\u0e2a\u0e33\u0e23\u0e27\u0e08 2 \u0e19\u0e32\u0e17\u0e35\u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e25\u0e1a\u0e42\u0e06\u0e29\u0e13\u0e32\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14\u0e2d\u0e22\u0e48\u0e32\u0e07\u0e16\u0e32\u0e27\u0e23!',survey_start:'\u0e40\u0e23\u0e34\u0e48\u0e21\u0e41\u0e1a\u0e1a\u0e2a\u0e33\u0e23\u0e27\u0e08',survey_decline:'\u0e44\u0e21\u0e48 \u0e02\u0e2d\u0e1a\u0e04\u0e38\u0e13',adfree_congrats:'\u0e22\u0e34\u0e19\u0e14\u0e35\u0e14\u0e49\u0e27\u0e22!',adfree_activated:'\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e1b\u0e25\u0e2d\u0e14\u0e42\u0e06\u0e29\u0e13\u0e32\u0e02\u0e2d\u0e07\u0e04\u0e38\u0e13\u0e16\u0e39\u0e01\u0e40\u0e1b\u0e34\u0e14\u0e43\u0e0a\u0e49\u0e07\u0e32\u0e19\u0e16\u0e32\u0e27\u0e23\u0e41\u0e25\u0e49\u0e27!',adfree_desc:'\u0e15\u0e31\u0e49\u0e07\u0e41\u0e15\u0e48\u0e19\u0e35\u0e49\u0e44\u0e1b \u0e04\u0e38\u0e13\u0e08\u0e30\u0e44\u0e21\u0e48\u0e40\u0e2b\u0e47\u0e19\u0e42\u0e06\u0e29\u0e13\u0e32\u0e04\u0e31\u0e48\u0e19\u0e23\u0e30\u0e2b\u0e27\u0e48\u0e32\u0e07\u0e2b\u0e19\u0e49\u0e32\u0e2d\u0e35\u0e01\u0e15\u0e48\u0e2d\u0e44\u0e1b',adfree_ok:'\u0e40\u0e22\u0e35\u0e48\u0e22\u0e21!',redirecting_survey:'\u0e01\u0e33\u0e25\u0e31\u0e07\u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e40\u0e2a\u0e49\u0e19\u0e17\u0e32\u0e07\u0e44\u0e1b\u0e22\u0e31\u0e07\u0e41\u0e1a\u0e1a\u0e2a\u0e33\u0e23\u0e27\u0e08...'},
+  vi:{free_remove_ads:'\ud83c\udf81 X\u00f3a Qu\u1ea3ng C\u00e1o Mi\u1ec5n Ph\u00ed',revive_subtitle:'Ho\u00e0n th\u00e0nh kh\u1ea3o s\u00e1t \u0111\u1ec3 h\u1ed3i sinh! X\u00f3a c\u00e1c kh\u1ed1i m\u00e0u ph\u1ed5 bi\u1ebfn nh\u1ea5t v\u00e0 ti\u1ebfp t\u1ee5c ch\u01a1i!',revive_btn:'\ud83d\udcdd Ho\u00e0n Th\u00e0nh Kh\u1ea3o S\u00e1t \u0110\u1ec3 H\u1ed3i Sinh',free_remove_ads_forever:'\ud83c\udf81 X\u00f3a Qu\u1ea3ng C\u00e1o V\u0129nh Vi\u1ec5n',level_clear_title:'HO\u00c0N TH\u00c0NH M\u00c0N',level_clear_subtitle:'H\u00e0ng \u0110\u00e3 X\u00f3a',lines_unit:'h\u00e0ng',resume_title:'T\u00ecm Th\u1ea5y Tr\u00f2 Ch\u01a1i Ch\u01b0a Ho\u00e0n Th\u00e0nh',resume_score:'\u0110i\u1ec3m Tr\u01b0\u1edbc',resume_continue:'Ti\u1ebfp T\u1ee5c',resume_new:'V\u00e1n M\u1edbi',revive_confirm_title:'\u0110\u00e3 Ho\u00e0n Th\u00e0nh Kh\u1ea3o S\u00e1t?',revive_confirm_desc:'Ho\u00e0n th\u00e0nh kh\u1ea3o s\u00e1t \u0111\u1ec3 h\u1ed3i sinh v\u00e0 ti\u1ebfp t\u1ee5c ch\u01a1i',revive_confirm_yes:'\u2705 Xong, H\u1ed3i Sinh Ngay',revive_confirm_no:'Ch\u01b0a Xong',survey_title:'X\u00f3a Qu\u1ea3ng C\u00e1o V\u0129nh Vi\u1ec5n',survey_desc:'Ho\u00e0n th\u00e0nh kh\u1ea3o s\u00e1t 2 ph\u00fat \u0111\u1ec3 x\u00f3a v\u0129nh vi\u1ec5n t\u1ea5t c\u1ea3 qu\u1ea3ng c\u00e1o!',survey_start:'B\u1eaft \u0110\u1ea7u Kh\u1ea3o S\u00e1t',survey_decline:'Kh\u00f4ng, C\u1ea3m \u01a0n',adfree_congrats:'Ch\u00fac M\u1eebng!',adfree_activated:'\u0110\u1eb7c quy\u1ec1n kh\u00f4ng qu\u1ea3ng c\u00e1o \u0111\u00e3 \u0111\u01b0\u1ee3c k\u00edch ho\u1ea1t v\u0129nh vi\u1ec5n!',adfree_desc:'T\u1eeb b\u00e2y gi\u1edd, b\u1ea1n s\u1ebd kh\u00f4ng bao gi\u1edd th\u1ea5y qu\u1ea3ng c\u00e1o xen k\u1ebd n\u1eefa',adfree_ok:'Tuy\u1ec7t V\u1eddi!',redirecting_survey:'\u0110ang chuy\u1ec3n h\u01b0\u1edbng \u0111\u1ebfn kh\u1ea3o s\u00e1t...'},
+  id:{free_remove_ads:'\ud83c\udf81 Hapus Iklan Gratis',revive_subtitle:'Selesaikan survei untuk bangkit! Hapus blok warna terbanyak dan lanjutkan bermain!',revive_btn:'\ud83d\udcdd Selesaikan Survei untuk Bangkit',free_remove_ads_forever:'\ud83c\udf81 Hapus Iklan Selamanya',level_clear_title:'LEVEL SELESAI',level_clear_subtitle:'Baris Dihapus',lines_unit:'baris',resume_title:'Permainan Belum Selesai Ditemukan',resume_score:'Skor Terakhir',resume_continue:'Lanjutkan',resume_new:'Permainan Baru',revive_confirm_title:'Survei Selesai?',revive_confirm_desc:'Selesaikan survei untuk bangkit dan lanjutkan bermain',revive_confirm_yes:'\u2705 Selesai, Bangkit Sekarang',revive_confirm_no:'Belum Selesai',survey_title:'Hapus Iklan Selamanya',survey_desc:'Selesaikan survei 2 menit untuk menghapus semua iklan secara permanen!',survey_start:'Mulai Survei',survey_decline:'Tidak, Terima Kasih',adfree_congrats:'Selamat!',adfree_activated:'Hak istimewa bebas iklan Anda telah diaktifkan secara permanen!',adfree_desc:'Mulai sekarang, Anda tidak akan pernah melihat iklan interstisial lagi',adfree_ok:'Luar Biasa!',redirecting_survey:'Mengalihkan ke survei...'},
+  ms:{free_remove_ads:'\ud83c\udf81 Buang Iklan Percuma',revive_subtitle:'Lengkapkan tinjauan untuk bangkit! Kosongkan blok warna terbanyak dan teruskan bermain!',revive_btn:'\ud83d\udcdd Lengkapkan Tinjauan untuk Bangkit',free_remove_ads_forever:'\ud83c\udf81 Buang Iklan Selama-lamanya',level_clear_title:'TAHAP SELESAI',level_clear_subtitle:'Baris Dikosongkan',lines_unit:'baris',resume_title:'Permainan Belum Selesai Ditemui',resume_score:'Skor Terakhir',resume_continue:'Teruskan',resume_new:'Permainan Baru',revive_confirm_title:'Tinjauan Selesai?',revive_confirm_desc:'Lengkapkan tinjauan untuk bangkit dan teruskan bermain',revive_confirm_yes:'\u2705 Selesai, Bangkit Sekarang',revive_confirm_no:'Belum Selesai',survey_title:'Buang Iklan Selama-lamanya',survey_desc:'Lengkapkan tinjauan 2 minit untuk membuang semua iklan secara kekal!',survey_start:'Mula Tinjauan',survey_decline:'Tidak, Terima Kasih',adfree_congrats:'Tahniah!',adfree_activated:'Keistimewaan bebas iklan anda telah diaktifkan secara kekal!',adfree_desc:'Mulai sekarang, anda tidak akan melihat iklan interstisial lagi',adfree_ok:'Hebat!',redirecting_survey:'Mengalihkan ke tinjauan...'},
+  tl:{free_remove_ads:'\ud83c\udf81 Alisin ang Ads Libre',revive_subtitle:'Kumpletuhin ang survey para mabuhay! I-clear ang pinakamaraming kulay na blocks at magpatuloy sa paglalaro!',revive_btn:'\ud83d\udcdd Kumpletuhin ang Survey para Mabuhay',free_remove_ads_forever:'\ud83c\udf81 Alisin ang Ads Habang-buhay',level_clear_title:'LEVEL TAPOS NA',level_clear_subtitle:'Mga Linya na Na-clear',lines_unit:'linya',resume_title:'May Nakitang Hindi Tapos na Laro',resume_score:'Huling Score',resume_continue:'Ituloy',resume_new:'Bagong Laro',revive_confirm_title:'Tapos na ang Survey?',revive_confirm_desc:'Kumpletuhin ang survey para mabuhay at magpatuloy sa paglalaro',revive_confirm_yes:'\u2705 Tapos na, Buhayin Ngayon',revive_confirm_no:'Hindi Pa',survey_title:'Alisin ang Ads Habang-buhay',survey_desc:'Kumpletuhin ang 2-minutong survey para permanenteng alisin lahat ng ads!',survey_start:'Simulan ang Survey',survey_decline:'Hindi, Salamat',adfree_congrats:'Binabati Kita!',adfree_activated:'Ang iyong ad-free privilege ay permanente nang na-activate!',adfree_desc:'Mula ngayon, hindi ka na makakakita ng interstitial ads',adfree_ok:'Ang Galing!',redirecting_survey:'Nire-redirect sa survey...'}
+};
+// Country-to-language mapping
+var COUNTRY_LANG_MAP={BR:'pt',TH:'th',VN:'vi',ID:'id',MY:'ms',PH:'tl',SG:'en'};
+var _currentLang='en';
+function t(key){return (I18N_LANGS[_currentLang]&&I18N_LANGS[_currentLang][key])||I18N_LANGS.en[key]||key;}
+function setLang(lang){_currentLang=I18N_LANGS[lang]?lang:'en';localStorage.setItem('bb_lang',_currentLang);}
+function getLang(){return _currentLang;}
+// IP-based language detection
+(function(){
+    var cached=localStorage.getItem('bb_lang');
+    if(cached&&I18N_LANGS[cached]){_currentLang=cached;return;}
+    try{
+        fetch('https://ip-api.com/json/?fields=countryCode',{mode:'cors'})
+            .then(function(r){return r.json();})
+            .then(function(data){
+                if(data&&data.countryCode){
+                    var lang=COUNTRY_LANG_MAP[data.countryCode]||'en';
+                    setLang(lang);
+                    // Update UI text after language detection
+                    if(typeof applyI18n==='function')applyI18n();
+                }
+            }).catch(function(){setLang('en');});
+    }catch(e){setLang('en');}
+})();
+
+// applyI18n - Update static HTML text after async language detection
+function applyI18n(){
+    var map={
+        'survey-btn-main':'free_remove_ads',
+        'i18n-revive-subtitle':'revive_subtitle',
+        'revive-btn':'revive_btn',
+        'i18n-gameover-survey-btn':'free_remove_ads_forever',
+        'i18n-survey-title':'survey_title',
+        'i18n-survey-desc':'survey_desc',
+        'i18n-survey-start':'survey_start',
+        'i18n-survey-decline':'survey_decline',
+        'i18n-adfree-congrats':'adfree_congrats',
+        'i18n-adfree-activated':'adfree_activated',
+        'i18n-adfree-desc':'adfree_desc',
+        'i18n-adfree-ok':'adfree_ok'
+    };
+    for(var id in map){
+        var el=document.getElementById(id);
+        if(el)el.textContent=t(map[id]);
+    }
+}
+// Apply i18n on DOMContentLoaded
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',applyI18n);}else{setTimeout(applyI18n,0);}
 
 // ============================================================
 // 全局数据上报函数 (Server-Side GTM)
@@ -937,11 +997,11 @@ function showResumeDialog(saved){
     overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px)';
     var box=document.createElement('div');
     box.style.cssText='background:linear-gradient(135deg,#1a1a2e,#16213e);border:1px solid rgba(0,204,255,.3);border-radius:16px;padding:32px;text-align:center;max-width:320px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.5)';
-    box.innerHTML='<div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:12px">\u53d1\u73b0\u672a\u5b8c\u6210\u7684\u5bf9\u5c40</div>'+
-        '<div style="font-size:14px;color:rgba(255,255,255,.6);margin-bottom:24px">\u4e0a\u6b21\u5f97\u5206\uff1a'+saved.score+'</div>'+
+    box.innerHTML='<div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:12px">'+t('resume_title')+'</div>'+
+        '<div style="font-size:14px;color:rgba(255,255,255,.6);margin-bottom:24px">'+t('resume_score')+'\uff1a'+saved.score+'</div>'+
         '<div style="display:flex;gap:12px;justify-content:center">'+
-        '<button id="resume-yes" style="flex:1;padding:12px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ccff,#00ff88);color:#000;font-weight:700;font-size:15px;cursor:pointer">\u7ee7\u7eed\u5bf9\u5c40</button>'+
-        '<button id="resume-no" style="flex:1;padding:12px 20px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-weight:500;font-size:15px;cursor:pointer">\u65b0\u5f00\u4e00\u5c40</button>'+
+        '<button id="resume-yes" style="flex:1;padding:12px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ccff,#00ff88);color:#000;font-weight:700;font-size:15px;cursor:pointer">'+t('resume_continue')+'</button>'+
+        '<button id="resume-no" style="flex:1;padding:12px 20px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-weight:500;font-size:15px;cursor:pointer">'+t('resume_new')+'</button>'+
         '</div>';
     overlay.appendChild(box);
     document.body.appendChild(overlay);
@@ -978,7 +1038,7 @@ function updateScoreUI(){
     var lvProgress=document.getElementById('level-progress');
     var lvText=document.getElementById('level-text');
     if(lvLabel)lvLabel.textContent='LEVEL '+currentLevel;
-    if(lvText)lvText.textContent=levelLinesCleared+' / '+target+' 行';
+    if(lvText)lvText.textContent=levelLinesCleared+' / '+target+' '+t('lines_unit');
     if(lvProgress)lvProgress.style.width=Math.min(100,levelLinesCleared/target*100)+'%';
     // GTM dataLayer: CPE Conversion at 1000 points
     if(score>=1000&&!cpeConversionFired){
@@ -1155,8 +1215,8 @@ function showLevelCompleteOverlay(){
         overlay.style.cssText='position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px);animation:fadeIn 300ms ease-out;';
         overlay.innerHTML='<div style="text-align:center;animation:comboPopIn 600ms ease-out">'+
             '<div id="lc-level" style="font-size:48px;font-weight:900;color:#00ff88;text-shadow:0 0 30px rgba(0,255,136,0.6),0 0 60px rgba(0,255,136,0.3);font-family:Orbitron,monospace,system-ui;margin-bottom:16px"></div>'+
-            '<h1 style="font-size:24px;font-weight:700;color:#ffaa00;text-shadow:0 0 20px rgba(255,170,0,0.5);font-family:Orbitron,monospace,system-ui;margin-bottom:8px">关卡挑战成功</h1>'+
-            '<p style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:4px">当前关卡得分</p>'+
+            '<h1 style="font-size:24px;font-weight:700;color:#ffaa00;text-shadow:0 0 20px rgba(255,170,0,0.5);font-family:Orbitron,monospace,system-ui;margin-bottom:8px">'+t('level_clear_title')+'</h1>'+
+            '<p style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:4px">'+t('level_clear_subtitle')+'</p>'+
             '<p id="lc-score" style="font-size:28px;font-weight:700;color:#00ccff;text-shadow:0 0 15px rgba(0,204,255,0.5);font-family:Orbitron,monospace,system-ui;margin-bottom:16px"></p>'+
             '<div id="mgid-levelcomplete" style="width:100%;max-width:320px;margin:0 auto 16px;border-radius:8px;overflow:hidden;min-height:100px;display:none"><div data-type=\"_mgwidget\" data-widget-id=\"2026349\"></div></div>'+
             '<button id="lc-next-btn" style="padding:12px 32px;font-size:18px;font-weight:700;border-radius:9999px;border:none;background:linear-gradient(135deg,#00ccff,#00ff88);color:#000;box-shadow:0 4px 20px rgba(0,204,255,0.4),0 0 40px rgba(0,255,136,0.2);cursor:pointer;transition:transform 0.15s">NEXT LEVEL →</button>'+
@@ -1169,7 +1229,7 @@ function showLevelCompleteOverlay(){
     var cfg=getLevelConfig(currentLevel);
     var target=cfg.targetLinesCleared||2;
     document.getElementById('lc-level').textContent='LEVEL '+currentLevel;
-    document.getElementById('lc-score').textContent=levelLinesCleared+' / '+target+' 行';
+    document.getElementById('lc-score').textContent=levelLinesCleared+' / '+target+' '+t('lines_unit');
     overlay.style.display='flex';
     // 显示 MGID widget
     showMgidWidget('mgid-levelcomplete');
@@ -1416,11 +1476,11 @@ function showReviveConfirmDialog(saved){
     var box=document.createElement('div');
     box.style.cssText='background:linear-gradient(135deg,#1a1a2e,#16213e);border:1px solid rgba(0,204,255,.3);border-radius:16px;padding:32px;text-align:center;max-width:320px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.5)';
     box.innerHTML='<div style="font-size:40px;margin-bottom:12px">\u2753</div>'+
-        '<div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:8px">\u662F\u5426\u5DF2\u5B8C\u6210\u95EE\u5377\uFF1F</div>'+
-        '<div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:24px">\u5B8C\u6210\u95EE\u5377\u540E\u5373\u53EF\u590D\u6D3B\uFF0C\u7EE7\u7EED\u6E38\u620F</div>'+
+        '<div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:8px">'+t('revive_confirm_title')+'</div>'+
+        '<div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:24px">'+t('revive_confirm_desc')+'</div>'+
         '<div style="display:flex;flex-direction:column;gap:10px">'+
-        '<button id="revive-confirm-yes" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ccff,#00ff88);color:#000;font-weight:700;font-size:15px;cursor:pointer;transition:transform 150ms">\u2705 \u5DF2\u5B8C\u6210\uFF0C\u7ACB\u5373\u590D\u6D3B</button>'+
-        '<button id="revive-confirm-no" style="width:100%;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.7);font-weight:500;font-size:14px;cursor:pointer;transition:transform 150ms">\u8FD8\u6CA1\u5B8C\u6210</button>'+
+        '<button id="revive-confirm-yes" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ccff,#00ff88);color:#000;font-weight:700;font-size:15px;cursor:pointer;transition:transform 150ms">'+t('revive_confirm_yes')+'</button>'+
+        '<button id="revive-confirm-no" style="width:100%;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.7);font-weight:500;font-size:14px;cursor:pointer;transition:transform 150ms">'+t('revive_confirm_no')+'</button>'+
         '</div>';
     overlay.appendChild(box);
     document.body.appendChild(overlay);
@@ -1499,7 +1559,7 @@ function handleRevive(){
     var btn=document.getElementById('revive-btn');
     var loading=document.getElementById('revive-loading');
     btn.disabled=true;
-    btn.innerHTML='<span style="display:inline-flex;align-items:center;gap:8px"><svg width="16" height="16" viewBox="0 0 16 16" style="animation:spin .8s linear infinite"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="28" stroke-dashoffset="8"/></svg>正在跳转问卷...</span>';
+    btn.innerHTML='<span style="display:inline-flex;align-items:center;gap:8px"><svg width="16" height="16" viewBox="0 0 16 16" style="animation:spin .8s linear infinite"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="28" stroke-dashoffset="8"/></svg>'+t('redirecting_survey')+'</span>';
     loading.style.display='block';
     // 短暂延迟让用户看到加载状态，然后跳转
     setTimeout(function(){
