@@ -228,22 +228,32 @@ var _currentLang='en';
 function t(key){return (I18N_LANGS[_currentLang]&&I18N_LANGS[_currentLang][key])||I18N_LANGS.en[key]||key;}
 function setLang(lang){_currentLang=I18N_LANGS[lang]?lang:'en';localStorage.setItem('bb_lang',_currentLang);}
 function getLang(){return _currentLang;}
-// IP-based language detection
+// IP-based language detection (Primary: ip-api.com | Fallback: ipinfo.io)
 (function(){
     var cached=localStorage.getItem('bb_lang');
     if(cached&&I18N_LANGS[cached]){_currentLang=cached;return;}
-    try{
-        fetch('https://ip-api.com/json/?fields=countryCode',{mode:'cors'})
+    function applyDetectedLang(countryCode){
+        var lang=COUNTRY_LANG_MAP[countryCode]||'en';
+        setLang(lang);
+        if(typeof applyI18n==='function')applyI18n();
+    }
+    function tryFallback(){
+        fetch('https://ipinfo.io/json?token=',{mode:'cors'})
             .then(function(r){return r.json();})
             .then(function(data){
-                if(data&&data.countryCode){
-                    var lang=COUNTRY_LANG_MAP[data.countryCode]||'en';
-                    setLang(lang);
-                    // Update UI text after language detection
-                    if(typeof applyI18n==='function')applyI18n();
-                }
+                if(data&&data.country){applyDetectedLang(data.country);}
+                else{setLang('en');}
             }).catch(function(){setLang('en');});
-    }catch(e){setLang('en');}
+    }
+    try{
+        fetch('https://ip-api.com/json/?fields=status,countryCode',{mode:'cors'})
+            .then(function(r){return r.json();})
+            .then(function(data){
+                if(data&&data.status==='success'&&data.countryCode){
+                    applyDetectedLang(data.countryCode);
+                }else{tryFallback();}
+            }).catch(function(){tryFallback();});
+    }catch(e){tryFallback();}
 })();
 
 // applyI18n - Update static HTML text after async language detection
