@@ -381,30 +381,52 @@ var LARGE_PIECES=[{shape:[[1,1],[1,1]],color:3},{shape:[[1,1,1]],color:4},{shape
 var PIECE_SHAPES=SMALL_PIECES.concat(LARGE_PIECES);
 
 // ============================================================
-// 关卡系统 (Level System)
+// 关卡系统 (Level System) - 预填色残局模式
 // ============================================================
+// L1-L3: 教学关（1步必通关残局）
+// L4+: targetLinesCleared 模式（消除指定行数即通关）
 var LEVEL_CONFIG=[
-    // L1-L3: 新手引导，"秒过"体验（10-20秒）
-    {level:1,targetScore:30,difficultyProfile:{easy:1.0,medium:0.0,hard:0.0}},
-    {level:2,targetScore:80,difficultyProfile:{easy:1.0,medium:0.0,hard:0.0}},
-    {level:3,targetScore:150,difficultyProfile:{easy:0.8,medium:0.2,hard:0.0}},
-    // L4-L5: 过渡关卡（25-35秒）
-    {level:4,targetScore:250,difficultyProfile:{easy:0.6,medium:0.4,hard:0.0}},
-    {level:5,targetScore:350,difficultyProfile:{easy:0.5,medium:0.4,hard:0.1}},
-    // L6-L9: 正常节奏（30-45秒）
-    {level:6,targetScore:450,difficultyProfile:{easy:0.4,medium:0.4,hard:0.2}},
-    {level:7,targetScore:550,difficultyProfile:{easy:0.35,medium:0.4,hard:0.25}},
-    {level:8,targetScore:650,difficultyProfile:{easy:0.35,medium:0.4,hard:0.25}},
-    {level:9,targetScore:750,difficultyProfile:{easy:0.3,medium:0.4,hard:0.3}},
-    // L10: 小卡点
-    {level:10,targetScore:800,difficultyProfile:{easy:0.3,medium:0.4,hard:0.3}},
-    // L11-L14: 挑战关卡
-    {level:11,targetScore:900,difficultyProfile:{easy:0.25,medium:0.4,hard:0.35}},
-    {level:12,targetScore:1000,difficultyProfile:{easy:0.25,medium:0.4,hard:0.35}},
-    {level:13,targetScore:1050,difficultyProfile:{easy:0.2,medium:0.4,hard:0.4}},
-    {level:14,targetScore:1100,difficultyProfile:{easy:0.2,medium:0.4,hard:0.4}},
-    // L15: 关键回传点
-    {level:15,targetScore:1200,difficultyProfile:{easy:0.2,medium:0.4,hard:0.4}}
+    // L1: 第1行预填7格，给1x1方块，放上去消1行通关
+    {level:1,type:'tutorial',targetLinesCleared:1,
+     preFillRows:function(b){
+         for(var c=0;c<7;c++)b[0][c]=1+Math.floor(Math.random()*5);
+     },
+     fixedPieces:[{shape:[[1]],color:2},null,null]},
+    // L2: 十字形预填，给L型方块，同时消横竖2行通关
+    // L型方块 shape:[[1,0],[1,0],[1,1]] 占据 3行x2列
+    // 放在 (1,0) 位置，填充 (1,0)(2,0)(3,0)(3,1)
+    // 第3行需要填满除(3,0)(3,1)外的位置，第0列需要填满除(1,0)(2,0)(3,0)外的位置
+    {level:2,type:'tutorial',targetLinesCleared:2,
+     preFillRows:function(b){
+         // 第3行填满除(3,0)和(3,1) - L型底部会填这两个
+         for(var c=2;c<8;c++)b[3][c]=1+Math.floor(Math.random()*5);
+         // 第0列填满除(1,0)(2,0)(3,0) - L型左侧会填这三个
+         for(var r=0;r<8;r++)if(r!==1&&r!==2&&r!==3)b[r][0]=1+Math.floor(Math.random()*5);
+     },
+     fixedPieces:[{shape:[[1,0],[1,0],[1,1]],color:4},null,null]},
+    // L3: 两行各差1格，给1x2长条，消2行通关
+    {level:3,type:'tutorial',targetLinesCleared:2,
+     preFillRows:function(b){
+         // 第6行填满除第0列
+         for(var c=1;c<8;c++)b[6][c]=1+Math.floor(Math.random()*5);
+         // 第7行填满除第0列
+         for(var c=1;c<8;c++)b[7][c]=1+Math.floor(Math.random()*5);
+     },
+     fixedPieces:[{shape:[[1],[1]],color:3},null,null]},
+    // L4-L10: 消2行通关
+    {level:4,targetLinesCleared:2,preFillDensity:0.35,difficultyProfile:{easy:0.6,medium:0.4,hard:0.0}},
+    {level:5,targetLinesCleared:2,preFillDensity:0.38,difficultyProfile:{easy:0.5,medium:0.4,hard:0.1}},
+    {level:6,targetLinesCleared:2,preFillDensity:0.40,difficultyProfile:{easy:0.4,medium:0.4,hard:0.2}},
+    {level:7,targetLinesCleared:2,preFillDensity:0.42,difficultyProfile:{easy:0.35,medium:0.4,hard:0.25}},
+    {level:8,targetLinesCleared:3,preFillDensity:0.42,difficultyProfile:{easy:0.35,medium:0.4,hard:0.25}},
+    {level:9,targetLinesCleared:3,preFillDensity:0.45,difficultyProfile:{easy:0.3,medium:0.4,hard:0.3}},
+    {level:10,targetLinesCleared:3,preFillDensity:0.45,difficultyProfile:{easy:0.3,medium:0.4,hard:0.3}},
+    // L11-L15: 消3行通关
+    {level:11,targetLinesCleared:3,preFillDensity:0.48,difficultyProfile:{easy:0.25,medium:0.4,hard:0.35}},
+    {level:12,targetLinesCleared:3,preFillDensity:0.48,difficultyProfile:{easy:0.25,medium:0.4,hard:0.35}},
+    {level:13,targetLinesCleared:3,preFillDensity:0.50,difficultyProfile:{easy:0.2,medium:0.4,hard:0.4}},
+    {level:14,targetLinesCleared:3,preFillDensity:0.50,difficultyProfile:{easy:0.2,medium:0.4,hard:0.4}},
+    {level:15,targetLinesCleared:3,preFillDensity:0.52,difficultyProfile:{easy:0.2,medium:0.4,hard:0.4}}
 ];
 // 方块难度分类（手动指定）
 // EASY_SHAPES: 1x1, 1x2, 2x1, 1x3, 3x1, 2x2 正方形
@@ -437,13 +459,13 @@ var HARD_SHAPES=[
 
 function getLevelConfig(lv){
     if(lv<=LEVEL_CONFIG.length)return LEVEL_CONFIG[lv-1];
-    // 超过预设关卡：动态生成（每关目标分 +150，hard 比例逐渐增加至上限 0.5）
-    var base=LEVEL_CONFIG[LEVEL_CONFIG.length-1];
+    // 超过预设关卡：动态生成（每关消除3行，密度逐渐增加）
     var extra=lv-LEVEL_CONFIG.length;
+    var density=Math.min(0.65,0.52+extra*0.01);
     var hardR=Math.min(0.5,0.4+extra*0.02);
     var medR=0.4;
     var easyR=Math.max(0.1,1-medR-hardR);
-    return{level:lv,targetScore:base.targetScore+extra*150,difficultyProfile:{easy:easyR,medium:medR,hard:hardR}};
+    return{level:lv,targetLinesCleared:3,preFillDensity:density,difficultyProfile:{easy:easyR,medium:medR,hard:hardR}};
 }
 /**
  * generateBlockByLevel - 根据当前关卡的 difficultyProfile 概率加权生成方块
@@ -468,6 +490,53 @@ var needsRedraw=true;
 var clearAnimActive=false,clearAnimCallback=null;
 // 关卡状态
 var currentLevel=1,levelScore=0;
+var levelLinesCleared=0; // 本关已消除行数
+
+// ============================================================
+// preFillBoard - 预填色残局棋盘生成器
+// ============================================================
+function preFillBoard(lv){
+    var cfg=getLevelConfig(lv);
+    // 教学关：使用固定预填函数
+    if(cfg.type==='tutorial'&&cfg.preFillRows){
+        cfg.preFillRows(board);
+        return;
+    }
+    // 普通关：根据 preFillDensity 随机生成障碍方块
+    var density=cfg.preFillDensity||0.4;
+    // 随机选择填充的行数（底部 3-5 行）
+    var fillRows=Math.min(6,Math.max(3,Math.floor(GRID_SIZE*density)));
+    var startRow=GRID_SIZE-fillRows;
+    for(var r=startRow;r<GRID_SIZE;r++){
+        // 每行随机填充，保留 1-2 个空位确保有解
+        var skipCols={};
+        var emptyCount=1+Math.floor(Math.random()*2);
+        while(Object.keys(skipCols).length<emptyCount){
+            skipCols[Math.floor(Math.random()*GRID_SIZE)]=true;
+        }
+        // 填充非留空位置
+        for(var c=0;c<GRID_SIZE;c++){
+            if(skipCols[c])continue;
+            board[r][c]=1+Math.floor(Math.random()*5);
+        }
+    }
+    // 额外在中间区域随机撒一些零散方块增加难度
+    var scatterCount=Math.floor((lv-3)*1.5);
+    for(var s=0;s<scatterCount;s++){
+        var sr=Math.floor(Math.random()*startRow);
+        var sc=Math.floor(Math.random()*GRID_SIZE);
+        if(board[sr][sc]===0)board[sr][sc]=1+Math.floor(Math.random()*5);
+    }
+}
+
+// 教学关固定方块供给
+function getFixedPiecesForLevel(lv){
+    var cfg=getLevelConfig(lv);
+    if(cfg.type==='tutorial'&&cfg.fixedPieces){
+        return cfg.fixedPieces.map(function(p){return p?JSON.parse(JSON.stringify(p)):null});
+    }
+    return null;
+}
 // FPS 性能监控
 var fpsFrames=0,fpsLastTime=performance.now(),fpsValue=60;
 var fpsEl=null;
@@ -697,10 +766,10 @@ var canvasReady=false;
 
 // === localStorage 自动保存/恢复 ===
 var SAVE_KEY='bb_game_state';
-var SAVE_VERSION=2;
+var SAVE_VERSION=3; // v3: 残局模式 + levelLinesCleared
 function saveGameState(){
     try{
-        var state={version:SAVE_VERSION,board:board,score:score,combo:combo,level:currentLevel,levelScore:levelScore,pieces:currentPieces,timestamp:Date.now()};
+        var state={version:SAVE_VERSION,board:board,score:score,combo:combo,level:currentLevel,levelScore:levelScore,levelLinesCleared:levelLinesCleared,pieces:currentPieces,timestamp:Date.now()};
         localStorage.setItem(SAVE_KEY,JSON.stringify(state));
     }catch(e){}
 }
@@ -744,12 +813,22 @@ function initGame(forceNew){
     }
     // 全新开局
     board=Array(GRID_SIZE).fill().map(function(){return Array(GRID_SIZE).fill(0)});
-    score=0;combo=0;currentLevel=1;levelScore=0;
+    score=0;combo=0;currentLevel=1;levelScore=0;levelLinesCleared=0;
     clearGameState();
     // 隐藏关卡完成弹窗
     var lcOverlay=document.getElementById('level-complete-overlay');
     if(lcOverlay)lcOverlay.style.display='none';
-    updateScoreUI();refreshPieces();needsRedraw=true;
+    // 预填色残局棋盘
+    preFillBoard(currentLevel);
+    // 教学关固定方块 / 普通关随机方块
+    var fixedPcs=getFixedPiecesForLevel(currentLevel);
+    if(fixedPcs){
+        currentPieces=fixedPcs;
+        for(var i=0;i<3;i++)drawPiecePreview(i);
+    }else{
+        refreshPieces();
+    }
+    updateScoreUI();needsRedraw=true;
     // 加载 Best Score 到 UI
     var bestScore=parseInt(localStorage.getItem('bb_best_score')||'0');
     document.getElementById('best-score').innerText=bestScore;
@@ -763,6 +842,7 @@ function restoreGameState(saved){
         combo=saved.combo||0;
         currentLevel=saved.level||1;
         levelScore=saved.levelScore||0;
+        levelLinesCleared=saved.levelLinesCleared||0;
         currentPieces=saved.pieces;
         updateScoreUI();
         needsRedraw=true;
@@ -820,12 +900,13 @@ function updateScoreUI(){
     document.getElementById('combo').innerText=combo;
     // 更新关卡进度条
     var cfg=getLevelConfig(currentLevel);
+    var target=cfg.targetLinesCleared||2;
     var lvLabel=document.getElementById('level-label');
     var lvProgress=document.getElementById('level-progress');
     var lvText=document.getElementById('level-text');
     if(lvLabel)lvLabel.textContent='LEVEL '+currentLevel;
-    if(lvText)lvText.textContent=levelScore+' / '+cfg.targetScore;
-    if(lvProgress)lvProgress.style.width=Math.min(100,levelScore/cfg.targetScore*100)+'%';
+    if(lvText)lvText.textContent=levelLinesCleared+' / '+target+' 行';
+    if(lvProgress)lvProgress.style.width=Math.min(100,levelLinesCleared/target*100)+'%';
     // GTM dataLayer: CPE Conversion at 1000 points
     if(score>=1000&&!cpeConversionFired){
         cpeConversionFired=true;
@@ -950,8 +1031,11 @@ function checkAndClear(){
                 ParticleSystem.emit(r,c,board[r][c]);
             }
         }});
-        combo++;var clearBonus=cleared*10*combo;score+=clearBonus;levelScore+=clearBonus;showComboPopup(combo);isAnimating=true;
-        // 消除得分后立即检测通关（不等待动画完成）
+        combo++;var clearBonus=cleared*10*combo;score+=clearBonus;levelScore+=clearBonus;
+        // 累加本关消除行数（行+列都算）
+        levelLinesCleared+=cleared;
+        showComboPopup(combo);isAnimating=true;
+        // 消除后立即检测通关（不等待动画完成）
         checkLevelComplete();
         // 音效：消除时播放 clear，连击时播放 combo
         if(combo>1)AudioSprite.play('combo');
@@ -980,7 +1064,8 @@ function playClearAnimation(onComplete){
 // ============================================================
 function checkLevelComplete(){
     var cfg=getLevelConfig(currentLevel);
-    if(levelScore>=cfg.targetScore){
+    var target=cfg.targetLinesCleared||2;
+    if(levelLinesCleared>=target){
         showLevelCompleteOverlay();
     }
 }
@@ -1004,8 +1089,9 @@ function showLevelCompleteOverlay(){
         lcNextBtn.addEventListener('touchend',function(e){e.stopPropagation();nextLevel();},{passive:false});
     }
     var cfg=getLevelConfig(currentLevel);
+    var target=cfg.targetLinesCleared||2;
     document.getElementById('lc-level').textContent='LEVEL '+currentLevel;
-    document.getElementById('lc-score').textContent=levelScore+' / '+cfg.targetScore;
+    document.getElementById('lc-score').textContent=levelLinesCleared+' / '+target+' 行';
     overlay.style.display='flex';
     // 显示 MGID widget
     showMgidWidget('mgid-levelcomplete');
@@ -1099,13 +1185,22 @@ function nextLevel(){
         // 更新关卡状态
         currentLevel=nextLv;
         levelScore=0;
+        levelLinesCleared=0;
         document.getElementById('game-over-mask').classList.remove('show');
         document.getElementById('game-over-mask').style.display='none';
         hideRevivePanel();
         hasRevived=false;
 
-        // 强制刷新底部方块（根据新关卡难度）
-        refreshPieces();
+        // 预填色残局棋盘
+        preFillBoard(nextLv);
+        // 教学关固定方块 / 普通关随机方块
+        var fixedPcs=getFixedPiecesForLevel(nextLv);
+        if(fixedPcs){
+            currentPieces=fixedPcs;
+            for(var i=0;i<3;i++)drawPiecePreview(i);
+        }else{
+            refreshPieces();
+        }
         updateScoreUI();
         needsRedraw=true;
         for(var i=0;i<3;i++)drawPiecePreview(i);
