@@ -1356,10 +1356,14 @@ window.addEventListener('message',function(event){
 
 function handleRevive(){
     var btn=document.getElementById('revive-btn');
+    var loading=document.getElementById('revive-loading');
     btn.disabled=true;
-    btn.textContent='正在跳转问卷...';
-    // 直接跳转问卷页面，复活逻辑在用户返回后由 checkPendingRevive() 处理
-    showRewardedAd();
+    btn.innerHTML='<span style="display:inline-flex;align-items:center;gap:8px"><svg width="16" height="16" viewBox="0 0 16 16" style="animation:spin .8s linear infinite"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="28" stroke-dashoffset="8"/></svg>正在跳转问卷...</span>';
+    loading.style.display='block';
+    // 短暂延迟让用户看到加载状态，然后跳转
+    setTimeout(function(){
+        showRewardedAd();
+    }, 500);
 }
 
 function skipRevive(){
