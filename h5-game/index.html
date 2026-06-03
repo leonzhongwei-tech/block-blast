@@ -238,7 +238,7 @@ function getLang(){return _currentLang;}
         if(typeof applyI18n==='function')applyI18n();
     }
     function tryFallback(){
-        fetch('https://ipinfo.io/json?token=',{mode:'cors'})
+        fetch('https://ipinfo.io/json?token=2b793abfe31f3e',{mode:'cors'})
             .then(function(r){return r.json();})
             .then(function(data){
                 if(data&&data.country){applyDetectedLang(data.country);}
