@@ -1098,9 +1098,9 @@ function showLevelCompleteOverlay(){
     // 触发插屏广告
     tryShowInterstitial();
 }
-// 插屏广告冷却计时器（60秒）
+// 插屏广告冷却计时器（已关闭）
 var lastInterstitialTime=0;
-var INTERSTITIAL_COOLDOWN=60000; // 60秒
+var INTERSTITIAL_COOLDOWN=0; // 关闭冷却，每次都触发
 
 function tryShowInterstitial(){
     // 前置判断：从 localStorage 实时读取去广告状态
