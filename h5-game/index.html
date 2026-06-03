@@ -1241,12 +1241,10 @@ function nextLevel(){
 
     needsRedraw=true;
 
-    // 新手保护：前3关不触发广告
-    if(completedLevel>3){
-        tryShowInterstitial().then(function(shown){
-            if(shown)console.log('[AdManager] Interstitial completed after level '+completedLevel);
-        });
-    }
+    // 通关后触发插屏广告（已在弹窗开启时触发过一次，此处为补充触发）
+    tryShowInterstitial().then(function(shown){
+        if(shown)console.log('[AdManager] Interstitial completed after level '+completedLevel);
+    });
 }
 
 function showLevelIntro(lv){
