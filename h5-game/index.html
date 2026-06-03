@@ -804,16 +804,27 @@ function initGame(forceNew){
     hideRevivePanel();
     animatingCells=[];isAnimating=false;hasRevived=false;
     // 检查是否有待完成的问卷复活（用户从问卷页返回）
-    if(!forceNew && checkPendingRevive()){
-        var saved=loadGameState();
-        if(saved){
-            restoreGameState(saved);
-            hasRevived=true;
-            // 执行复活清除逻辑
-            reviveGame();
-            hideLoadingScreen();
-            console.log('[Revive] Auto-revive after survey return');
-            return;
+    if(!forceNew){
+        var reviveStatus=checkPendingRevive();
+        if(reviveStatus==='confirm'){
+            // 需要弹窗确认是否已完成问卷
+            var saved=loadGameState();
+            if(saved){
+                hideLoadingScreen();
+                showReviveConfirmDialog(saved);
+                return;
+            }
+        }else if(reviveStatus==='direct'){
+            // URL 参数确认已完成，直接复活
+            var saved=loadGameState();
+            if(saved){
+                restoreGameState(saved);
+                hasRevived=true;
+                reviveGame();
+                hideLoadingScreen();
+                console.log('[Revive] Auto-revive after survey return (URL param confirmed)');
+                return;
+            }
         }
     }
     // 检查是否有未完成的对局
@@ -1328,22 +1339,65 @@ function showRewardedAd(){
     // 页面跳转后不会继续执行，复活逻辑在页面重新加载时通过 checkPendingRevive() 处理
 }
 
-// 页面加载时检查是否有待完成的复活
+// 页面加载时检查是否有待完成的复活（返回 'confirm' 表示需要弹窗确认，'direct' 表示直接复活，false 表示无需复活）
 function checkPendingRevive(){
     var pendingRevive=localStorage.getItem('pending_revive');
     if(pendingRevive==='true'){
-        // 无论问卷是否真正完成，用户已经跳转过去了，给予复活奖励
+        // 用户从问卷页返回，需要弹窗确认是否已完成
         localStorage.removeItem('pending_revive');
-        console.log('[Revive] User returned from survey, granting revive');
-        return true;
+        console.log('[Revive] User returned from survey, showing confirm dialog');
+        return 'confirm';
     }
-    // 也检查 URL 参数
+    // 也检查 URL 参数（URL 参数说明问卷确实完成了，直接复活）
     var params=new URLSearchParams(window.location.search);
     if(params.get('survey_status')==='completed'&&localStorage.getItem('pending_revive_used')!=='true'){
         console.log('[Revive] Survey completed via URL param, granting revive');
-        return true;
+        return 'direct';
     }
     return false;
+}
+
+// 显示复活确认对话框
+function showReviveConfirmDialog(saved){
+    var overlay=document.createElement('div');
+    overlay.id='revive-confirm-dialog';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:fadeIn 200ms ease-out';
+    var box=document.createElement('div');
+    box.style.cssText='background:linear-gradient(135deg,#1a1a2e,#16213e);border:1px solid rgba(0,204,255,.3);border-radius:16px;padding:32px;text-align:center;max-width:320px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.5)';
+    box.innerHTML='<div style="font-size:40px;margin-bottom:12px">\u2753</div>'+
+        '<div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:8px">\u662F\u5426\u5DF2\u5B8C\u6210\u95EE\u5377\uFF1F</div>'+
+        '<div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:24px">\u5B8C\u6210\u95EE\u5377\u540E\u5373\u53EF\u590D\u6D3B\uFF0C\u7EE7\u7EED\u6E38\u620F</div>'+
+        '<div style="display:flex;flex-direction:column;gap:10px">'+
+        '<button id="revive-confirm-yes" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#00ccff,#00ff88);color:#000;font-weight:700;font-size:15px;cursor:pointer;transition:transform 150ms">\u2705 \u5DF2\u5B8C\u6210\uFF0C\u7ACB\u5373\u590D\u6D3B</button>'+
+        '<button id="revive-confirm-no" style="width:100%;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.7);font-weight:500;font-size:14px;cursor:pointer;transition:transform 150ms">\u8FD8\u6CA1\u5B8C\u6210</button>'+
+        '</div>';
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    // 绑定事件
+    var confirmYes=document.getElementById('revive-confirm-yes');
+    var confirmNo=document.getElementById('revive-confirm-no');
+    var yesHandler=function(){
+        overlay.remove();
+        if(saved){
+            restoreGameState(saved);
+            hasRevived=true;
+            reviveGame();
+            console.log('[Revive] User confirmed survey completion, revive granted');
+        }
+    };
+    var noHandler=function(){
+        overlay.remove();
+        // 未完成问卷，正常触发 Game Over
+        console.log('[Revive] User did not complete survey, triggering game over');
+        if(saved){
+            restoreGameState(saved);
+        }
+        triggerGameOver();
+    };
+    confirmYes.onclick=yesHandler;
+    confirmYes.addEventListener('touchend',function(e){e.stopPropagation();yesHandler();},{passive:false});
+    confirmNo.onclick=noHandler;
+    confirmNo.addEventListener('touchend',function(e){e.stopPropagation();noHandler();},{passive:false});
 }
 
 // 监听问卷完成的 postMessage（备用通道）
