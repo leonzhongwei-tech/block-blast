@@ -1378,6 +1378,24 @@ function showReviveConfirmDialog(saved){
     var confirmNo=document.getElementById('revive-confirm-no');
     var yesHandler=function(){
         overlay.remove();
+        // 埋点：问卷完成确认
+        window.dataLayer=window.dataLayer||[];
+        window.dataLayer.push({
+            'event':'survey_revive_confirm',
+            'action':'completed',
+            'event_category':'survey_conversion',
+            'user_id':getOrCreateUserId(),
+            'level':currentLevel,
+            'score':saved?saved.score:0
+        });
+        if(typeof gtag==='function'){
+            gtag('event','survey_revive_confirm',{
+                'event_category':'survey_conversion',
+                'event_label':'completed',
+                'value':1
+            });
+        }
+        console.log('[Analytics] survey_revive_confirm: completed');
         if(saved){
             restoreGameState(saved);
             hasRevived=true;
@@ -1387,6 +1405,24 @@ function showReviveConfirmDialog(saved){
     };
     var noHandler=function(){
         overlay.remove();
+        // 埋点：问卷未完成
+        window.dataLayer=window.dataLayer||[];
+        window.dataLayer.push({
+            'event':'survey_revive_confirm',
+            'action':'not_completed',
+            'event_category':'survey_conversion',
+            'user_id':getOrCreateUserId(),
+            'level':currentLevel,
+            'score':saved?saved.score:0
+        });
+        if(typeof gtag==='function'){
+            gtag('event','survey_revive_confirm',{
+                'event_category':'survey_conversion',
+                'event_label':'not_completed',
+                'value':0
+            });
+        }
+        console.log('[Analytics] survey_revive_confirm: not_completed');
         // 未完成问卷，正常触发 Game Over
         console.log('[Revive] User did not complete survey, triggering game over');
         if(saved){
