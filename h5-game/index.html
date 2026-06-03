@@ -803,6 +803,19 @@ function initGame(forceNew){
     hideMgidWidget('mgid-gameover');
     hideRevivePanel();
     animatingCells=[];isAnimating=false;hasRevived=false;
+    // 检查是否有待完成的问卷复活（用户从问卷页返回）
+    if(!forceNew && checkPendingRevive()){
+        var saved=loadGameState();
+        if(saved){
+            restoreGameState(saved);
+            hasRevived=true;
+            // 执行复活清除逻辑
+            reviveGame();
+            hideLoadingScreen();
+            console.log('[Revive] Auto-revive after survey return');
+            return;
+        }
+    }
     // 检查是否有未完成的对局
     if(!forceNew){
         var saved=loadGameState();
@@ -1303,51 +1316,50 @@ function hideRevivePanel(){
     isAnimating=false;
 }
 
-// 模拟广告 SDK 异步函数
+// 问卷复活：跳转问卷页面，用户返回后通过 URL 参数或 localStorage 触发复活
 function showRewardedAd(){
-    return new Promise(function(resolve,reject){
-        console.log('[Revive] Opening survey for revive...');
-        // 先保存游戏状态，然后跳转
-        try{ saveGameState(); }catch(e){}
-        // iOS Safari 兼容：直接跳转当前页面
-        window.location.href=SURVEY_LINK_PLACEHOLDER;
-        // 跳转后不会执行到这里，但保留 resolve 以防万一
-        resolve({rewarded:true});
-    });
+    console.log('[Revive] Opening survey for revive...');
+    // 标记正在等待复活问卷
+    localStorage.setItem('pending_revive','true');
+    // 保存游戏状态
+    try{ saveGameState(); }catch(e){}
+    // iOS Safari 兼容：直接跳转当前页面
+    window.location.href=SURVEY_LINK_PLACEHOLDER;
+    // 页面跳转后不会继续执行，复活逻辑在页面重新加载时通过 checkPendingRevive() 处理
 }
 
-// 监听问卷完成的 postMessage 来触发复活
+// 页面加载时检查是否有待完成的复活
+function checkPendingRevive(){
+    var pendingRevive=localStorage.getItem('pending_revive');
+    if(pendingRevive==='true'){
+        // 无论问卷是否真正完成，用户已经跳转过去了，给予复活奖励
+        localStorage.removeItem('pending_revive');
+        console.log('[Revive] User returned from survey, granting revive');
+        return true;
+    }
+    // 也检查 URL 参数
+    var params=new URLSearchParams(window.location.search);
+    if(params.get('survey_status')==='completed'&&localStorage.getItem('pending_revive_used')!=='true'){
+        console.log('[Revive] Survey completed via URL param, granting revive');
+        return true;
+    }
+    return false;
+}
+
+// 监听问卷完成的 postMessage（备用通道）
 window.addEventListener('message',function(event){
     if(event.data==='survey_success'||(event.data&&event.data.type==='survey_completed')){
-        if(window._reviveCallback){
-            console.log('[Revive] Survey completed, granting revive');
-            window._reviveCallback.resolve({rewarded:true});
-            window._reviveCallback=null;
-        }
+        // 激活去广告特权
+        activateAdFree();
     }
 });
 
 function handleRevive(){
     var btn=document.getElementById('revive-btn');
-    var loading=document.getElementById('revive-loading');
     btn.disabled=true;
-    btn.textContent='等待问卷完成...';
-    loading.style.display='block';
-
-    showRewardedAd().then(function(result){
-        loading.style.display='none';
-        if(result.rewarded){
-            hasRevived=true;
-            hideRevivePanel();
-            reviveGame();
-        }
-    }).catch(function(err){
-        loading.style.display='none';
-        btn.disabled=false;
-        btn.textContent='📝 完成问卷复活';
-        // 问卷加载失败，提示重试
-        alert('问卷加载失败，请重试');
-    });
+    btn.textContent='正在跳转问卷...';
+    // 直接跳转问卷页面，复活逻辑在用户返回后由 checkPendingRevive() 处理
+    showRewardedAd();
 }
 
 function skipRevive(){
