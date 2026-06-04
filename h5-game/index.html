@@ -1262,15 +1262,7 @@ function tryShowInterstitial(){
         return Promise.resolve(false);
     }
     lastInterstitialTime=now;
-    console.log('[AdManager] Showing MGID interstitial widget...');
-    // 触发 MGID widget 加载
-    try{
-        window._mgq=window._mgq||[];
-        window._mgq.push(['_mgc.load']);
-        console.log('[AdManager] MGID widget load triggered');
-    }catch(e){
-        console.log('[AdManager] MGID trigger error:',e);
-    }
+    console.log('[AdManager] Interstitial triggered (SDK reinject handled by showMgidWidget)');
     return Promise.resolve(true);
 }
 
@@ -1280,19 +1272,33 @@ function showMgidWidget(containerId){
     var el=document.getElementById(containerId);
     if(el){
         el.style.display='block';
-        // iOS Safari: SDK 不会重新渲染已处理过的 widget 节点
-        // 销毁旧内容并重建全新 DOM 节点后再触发 load
+        // iOS Safari: MGID SDK 内部缓存已处理的 widget-id，_mgc.load 不会重复渲染
+        // 解决方案：完全移除并重新注入 SDK script，强制全新初始化
         el.innerHTML='';
         var newWidget=document.createElement('div');
         newWidget.setAttribute('data-type','_mgwidget');
         newWidget.setAttribute('data-widget-id','2026349');
         el.appendChild(newWidget);
-        // 触发 MGID SDK 重新扫描并渲染新节点
         try{
-            window._mgq=window._mgq||[];
-            window._mgq.push(['_mgc.load']);
-            console.log('[MGID] Widget DOM rebuilt: '+containerId);
-        }catch(e){}
+            // 1. 移除所有旧的 MGID script 标签
+            var oldScripts=document.querySelectorAll('script[src*="mgid"]');
+            for(var i=0;i<oldScripts.length;i++){oldScripts[i].remove();}
+            // 2. 清除 SDK 内部状态
+            delete window._mgq;
+            delete window._mgc;
+            var keys=Object.keys(window);
+            for(var j=0;j<keys.length;j++){
+                if(keys[j].indexOf('_mg')===0||keys[j].toLowerCase().indexOf('mgid')!==-1){
+                    try{delete window[keys[j]];}catch(e){}
+                }
+            }
+            // 3. 重新注入 SDK script
+            var newScript=document.createElement('script');
+            newScript.src='https://jsc.mgid.com/site/1098312.js';
+            newScript.async=true;
+            document.head.appendChild(newScript);
+            console.log('[MGID] SDK fully reinjected for: '+containerId);
+        }catch(e){console.log('[MGID] Reinject error:',e);}
     }
 }
 function hideMgidWidget(containerId){
